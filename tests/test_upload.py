@@ -70,6 +70,13 @@ def two_gifs(tmp_path: Path) -> list[Path]:
 
 
 class TestUploadGifs:
+    @pytest.fixture(autouse=True)
+    def _mock_cache(self):
+        """Prevent tests from touching the real cache file on disk."""
+        with patch("idotmatrix_upload.upload.add_to_cache"), \
+             patch("idotmatrix_upload.upload.load_cache", return_value=[]):
+            yield
+
     @pytest.mark.asyncio
     async def test_single_gif_upload(self, single_gif: Path):
         with patch(
@@ -285,4 +292,160 @@ class TestUploadGifs:
                 [single_gif],
                 device_address="AA:BB:CC:DD:EE:FF",
                 preprocess=False,
+            )
+
+    @pytest.mark.asyncio
+    async def test_upload_delay_sleeps_between_files(self, two_gifs: list[Path]):
+        with patch(
+            "idotmatrix_upload.upload.ble.connect",
+            side_effect=_auto_ack_connect(),
+        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await upload_gifs(
+                two_gifs,
+                device_address="AA:BB:CC:DD:EE:FF",
+                preprocess=False,
+                upload_delay=0.1,
+            )
+
+        mock_sleep.assert_awaited_once_with(0.1)
+
+    @pytest.mark.asyncio
+    async def test_upload_delay_not_applied_for_single_file(self, single_gif: Path):
+        with patch(
+            "idotmatrix_upload.upload.ble.connect",
+            side_effect=_auto_ack_connect(),
+        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await upload_gifs(
+                [single_gif],
+                device_address="AA:BB:CC:DD:EE:FF",
+                preprocess=False,
+                upload_delay=0.1,
+            )
+
+        mock_sleep.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_upload_no_delay_by_default(self, two_gifs: list[Path]):
+        with patch(
+            "idotmatrix_upload.upload.ble.connect",
+            side_effect=_auto_ack_connect(),
+        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await upload_gifs(
+                two_gifs,
+                device_address="AA:BB:CC:DD:EE:FF",
+                preprocess=False,
+            )
+
+        mock_sleep.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_uses_cached_address(self, single_gif: Path):
+        cached_addr = "CC:CC:CC:CC:CC:CC"
+
+        probe_conn = _make_mock_connection()
+        probe_conn.disconnect = AsyncMock()
+        call_count = 0
+
+        async def mock_connect(address, on_notification=None, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if on_notification is None:
+                return probe_conn
+            conn = _make_mock_connection()
+
+            async def mock_write(data):
+                if on_notification is not None:
+                    on_notification(ACK_OK)
+
+            conn.write = AsyncMock(side_effect=mock_write)
+            return conn
+
+        with patch(
+            "idotmatrix_upload.upload.load_cache", return_value=[cached_addr]
+        ), patch(
+            "idotmatrix_upload.upload.ble.connect", side_effect=mock_connect
+        ), patch(
+            "idotmatrix_upload.upload.ble.scan", new_callable=AsyncMock
+        ) as mock_scan, patch(
+            "idotmatrix_upload.upload.add_to_cache"
+        ):
+            await upload_gifs(
+                [single_gif],
+                device_address=None,
+                preprocess=False,
+                use_cache=True,
+            )
+
+        mock_scan.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cached_address_unreachable_falls_back_to_scan(self, single_gif: Path):
+        async def mock_connect(address, on_notification=None, **kwargs):
+            if on_notification is None:
+                raise BLEConnectionError("unreachable")
+            conn = _make_mock_connection()
+
+            async def mock_write(data):
+                if on_notification is not None:
+                    on_notification(ACK_OK)
+
+            conn.write = AsyncMock(side_effect=mock_write)
+            return conn
+
+        with patch(
+            "idotmatrix_upload.upload.load_cache", return_value=["BAD:AD:DR:ES:S0:00"]
+        ), patch(
+            "idotmatrix_upload.upload.ble.connect", side_effect=mock_connect
+        ), patch(
+            "idotmatrix_upload.upload.ble.scan",
+            new_callable=AsyncMock,
+            return_value=["AA:BB:CC:DD:EE:FF"],
+        ) as mock_scan, patch(
+            "idotmatrix_upload.upload.add_to_cache"
+        ):
+            await upload_gifs(
+                [single_gif],
+                device_address=None,
+                preprocess=False,
+                use_cache=True,
+            )
+
+        mock_scan.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_successful_connect_updates_cache(self, single_gif: Path):
+        with patch(
+            "idotmatrix_upload.upload.ble.connect",
+            side_effect=_auto_ack_connect(),
+        ), patch(
+            "idotmatrix_upload.upload.add_to_cache"
+        ) as mock_add:
+            await upload_gifs(
+                [single_gif],
+                device_address="AA:BB:CC:DD:EE:FF",
+                preprocess=False,
+                use_cache=True,
+            )
+
+        mock_add.assert_called_once_with("AA:BB:CC:DD:EE:FF")
+
+    @pytest.mark.asyncio
+    async def test_scan_when_no_address_and_empty_cache(self, single_gif: Path):
+        with patch(
+            "idotmatrix_upload.upload.load_cache", return_value=[]
+        ), patch(
+            "idotmatrix_upload.upload.ble.scan",
+            new_callable=AsyncMock,
+            return_value=["AA:BB:CC:DD:EE:FF"],
+        ), patch(
+            "idotmatrix_upload.upload.ble.connect",
+            side_effect=_auto_ack_connect(),
+        ), patch(
+            "idotmatrix_upload.upload.add_to_cache"
+        ):
+            await upload_gifs(
+                [single_gif],
+                device_address=None,
+                preprocess=False,
+                use_cache=True,
             )

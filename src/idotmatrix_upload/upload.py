@@ -13,6 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import ble, protocol
+from .device_cache import add_to_cache, load_cache
 from .preprocess import preprocess_batch
 
 logger = logging.getLogger(__name__)
@@ -33,12 +34,14 @@ async def upload_gifs(
     on_progress: Callable[[int, int, int, int], None] | None = None,
     preprocess: bool = True,
     preprocessed_dir: Path | None = None,
+    upload_delay: float | None = None,
+    use_cache: bool = True,
 ) -> None:
     """Preprocess and upload one or more GIFs to an iDotMatrix device.
 
     Args:
         gif_paths: Paths to GIF files to upload.
-        device_address: BLE address (if None, scans for a device).
+        device_address: BLE address (if None, tries cache then scans).
         device_name_prefix: Name prefix for scanning.
         target_size: Target resolution for preprocessing.
         chunk_size: Protocol-level chunk size in bytes.
@@ -47,6 +50,8 @@ async def upload_gifs(
         on_progress: Callback(file_idx, total_files, chunk_idx, total_chunks).
         preprocess: Whether to preprocess GIFs before upload.
         preprocessed_dir: Directory for preprocessed files (temp dir if None).
+        upload_delay: Seconds to wait between successive GIF uploads.
+        use_cache: Try cached device addresses before scanning.
 
     Raises:
         UploadError: If a chunk fails after max_retries.
@@ -68,16 +73,33 @@ async def upload_gifs(
         upload_paths = [r.output_path for r in results]
         logger.info("Preprocessing complete")
 
-    if device_address is None:
-        logger.info("No device address specified, scanning...")
-        addresses = await ble.scan(name_prefix=device_name_prefix)
-        if not addresses:
-            raise ble.BLEConnectionError(
-                f"No iDotMatrix device found with prefix '{device_name_prefix}'. "
-                f"Make sure the device is powered on and within BLE range."
-            )
-        device_address = addresses[0]
-        logger.info("Using device: %s", device_address)
+    if device_address is not None:
+        logger.info("Using explicit device address: %s", device_address)
+    else:
+        if use_cache:
+            cached = load_cache()
+            for addr in cached:
+                logger.info("Trying cached device %s ...", addr)
+                try:
+                    probe = await ble.connect(addr, timeout=3.0)
+                    await probe.disconnect()
+                    device_address = addr
+                    add_to_cache(addr)
+                    logger.info("Cached device %s is reachable", addr)
+                    break
+                except (ble.BLEConnectionError, Exception):
+                    logger.debug("Cached device %s unreachable", addr)
+
+        if device_address is None:
+            logger.info("Scanning for devices...")
+            addresses = await ble.scan(name_prefix=device_name_prefix)
+            if not addresses:
+                raise ble.BLEConnectionError(
+                    f"No iDotMatrix device found with prefix '{device_name_prefix}'. "
+                    f"Make sure the device is powered on and within BLE range."
+                )
+            device_address = addresses[0]
+            logger.info("Using device: %s", device_address)
 
     ack_event = asyncio.Event()
     ack_result: str = ""
@@ -135,5 +157,12 @@ async def upload_gifs(
                     on_progress(file_idx, total_files, chunk_idx, total_chunks)
 
             logger.info("Finished uploading %s", gif_path.name)
+
+            if upload_delay is not None and file_idx < total_files - 1:
+                logger.info("Waiting %.1fs before next upload...", upload_delay)
+                await asyncio.sleep(upload_delay)
+
+        if use_cache:
+            add_to_cache(device_address)
     finally:
         await connection.disconnect()

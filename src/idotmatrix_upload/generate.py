@@ -26,7 +26,7 @@ def _render_digit(
 
     text = str(number)
 
-    font_size = int(size * 0.6)
+    font_size = int(size * 0.85)
     try:
         font = ImageFont.load_default(size=font_size)
     except TypeError:

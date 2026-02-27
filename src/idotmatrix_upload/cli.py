@@ -37,7 +37,7 @@ def _parse_size(size_str: str) -> tuple[int, int]:
         return (int(parts[0]), int(parts[1]))
     except (ValueError, IndexError):
         raise click.BadParameter(
-            f"Invalid size '{size_str}'. Use WxH format, e.g. 32x32"
+            f"Invalid size '{size_str}'. Use WxH format, e.g. 64x64"
         )
 
 
@@ -51,10 +51,12 @@ def main() -> None:
 @click.argument("gif_paths", nargs=-1, required=True, type=click.Path(exists=False))
 @click.option("--device-addr", default=None, help="BLE address (skip scan).")
 @click.option("--device-name", default="IDM-", help="Device name prefix for scanning.")
-@click.option("--size", default="32x32", help="Target resolution WxH.")
+@click.option("--size", default="64x64", help="Target resolution WxH.")
 @click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
 @click.option("--timeout", default=5.0, type=float, help="Per-chunk ACK timeout in seconds.")
 @click.option("--no-preprocess", is_flag=True, help="Skip preprocessing.")
+@click.option("--delay", default=1.7, type=float, help="Seconds to wait between GIF uploads.")
+@click.option("--no-cache", is_flag=True, help="Skip device address cache.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
 def upload(
     gif_paths: tuple[str, ...],
@@ -64,6 +66,8 @@ def upload(
     chunk_size: int,
     timeout: float,
     no_preprocess: bool,
+    delay: float | None,
+    no_cache: bool,
     verbose: bool,
 ) -> None:
     """Upload one or more GIF files to an iDotMatrix device."""
@@ -92,6 +96,8 @@ def upload(
                 ack_timeout=timeout,
                 preprocess=not no_preprocess,
                 on_progress=on_progress,
+                upload_delay=delay,
+                use_cache=not no_cache,
             )
         )
         click.echo("Upload complete.")
@@ -114,7 +120,7 @@ def upload(
     help="Directory to write generated GIFs.",
 )
 @click.option("--count", default=10, type=int, help="How many GIFs to generate (1..N).")
-@click.option("--size", default=32, type=int, help="Pixel dimension (width = height).")
+@click.option("--size", default=64, type=int, help="Pixel dimension (width = height).")
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
 def generate(output_dir: str, count: int, size: int, verbose: bool) -> None:
     """Generate test GIF animations (spinning numbers 1..N)."""
@@ -137,7 +143,7 @@ def generate(output_dir: str, count: int, size: int, verbose: bool) -> None:
     type=click.Path(),
     help="Directory for processed GIFs.",
 )
-@click.option("--size", default="32x32", help="Target resolution WxH.")
+@click.option("--size", default="64x64", help="Target resolution WxH.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
 def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: bool) -> None:
     """Validate and preprocess GIF files for iDotMatrix upload."""
