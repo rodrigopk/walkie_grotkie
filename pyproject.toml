@@ -1,0 +1,29 @@
+[project]
+name = "idotmatrix-upload"
+version = "0.1.0"
+description = "CLI tool for uploading GIF animations to iDotMatrix LED matrix devices over BLE"
+requires-python = ">=3.11"
+dependencies = [
+    "bleak>=0.21",
+    "Pillow>=10.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+idotmatrix-upload = "idotmatrix_upload.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
