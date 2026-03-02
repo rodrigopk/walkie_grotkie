@@ -6,37 +6,69 @@ interface ColorPaletteProps {
   onSetColor: (color: RGBA) => void;
 }
 
-const SWATCHES: RGBA[] = [
-  [0, 0, 0, 255],
-  [255, 255, 255, 255],
-  [127, 127, 127, 255],
-  [195, 195, 195, 255],
+const PALETTE = {
+  black: [0, 0, 0, 255],
+  white: [255, 255, 255, 255],
+  grayMid: [127, 127, 127, 255],
+  grayLight: [195, 195, 195, 255],
 
-  [255, 0, 0, 255],
-  [255, 127, 0, 255],
-  [255, 255, 0, 255],
-  [0, 255, 0, 255],
+  redBright: [255, 0, 0, 255],
+  orangeBright: [238, 72, 27, 255],
+  yellowBright: [249, 195, 12, 255],
+  greenBright: [0, 255, 0, 255],
 
-  [0, 255, 255, 255],
-  [0, 0, 255, 255],
-  [127, 0, 255, 255],
-  [255, 0, 255, 255],
+  cyanBright: [0, 255, 255, 255],
+  blueBright: [0, 0, 255, 255],
+  purpleBright: [127, 0, 255, 255],
+  magentaBright: [255, 0, 255, 255],
 
-  [127, 0, 0, 255],
-  [127, 63, 0, 255],
-  [127, 127, 0, 255],
-  [0, 127, 0, 255],
+  redDark: [127, 0, 0, 255],
+  orangeDark: [127, 63, 0, 255],
+  yellowDark: [127, 127, 0, 255],
+  greenDark: [0, 127, 0, 255],
 
-  [0, 127, 127, 255],
-  [0, 0, 127, 255],
-  [63, 0, 127, 255],
-  [127, 0, 127, 255],
+  cyanDark: [0, 127, 127, 255],
+  blueDark: [0, 0, 127, 255],
+  purpleDark: [63, 0, 127, 255],
+  magentaDark: [127, 0, 127, 255],
 
-  [255, 200, 200, 255],
-  [255, 220, 180, 255],
-  [255, 255, 200, 255],
-  [200, 255, 200, 255],
-];
+  redPastel: [255, 200, 200, 255],
+  orangePastel: [255, 220, 180, 255],
+  yellowPastel: [255, 255, 200, 255],
+  greenPastel: [200, 255, 200, 255],
+} as const satisfies Record<string, RGBA>;
+
+const SWATCH_ORDER = [
+  "black",
+  "white",
+  "grayMid",
+  "grayLight",
+  "redBright",
+  "orangeBright",
+  "yellowBright",
+  "greenBright",
+  "cyanBright",
+  "blueBright",
+  "purpleBright",
+  "magentaBright",
+  "redDark",
+  "orangeDark",
+  "yellowDark",
+  "greenDark",
+  "cyanDark",
+  "blueDark",
+  "purpleDark",
+  "magentaDark",
+  "redPastel",
+  "orangePastel",
+  "yellowPastel",
+  "greenPastel",
+] as const;
+
+const SWATCHES = SWATCH_ORDER.map((name) => ({
+  name,
+  rgba: PALETTE[name],
+}));
 
 function rgbaToHex(rgba: RGBA): string {
   return (
@@ -77,12 +109,12 @@ export function ColorPalette({ color, onSetColor }: ColorPaletteProps) {
       <div className="color-swatches">
         {SWATCHES.map((swatch, i) => (
           <button
-            key={i}
-            className={`color-swatch ${rgbaEqual(swatch, color) ? "active" : ""}`}
-            style={{ background: rgbaToHex(swatch) }}
-            onClick={() => onSetColor(swatch)}
-            title={rgbaToHex(swatch)}
-            aria-label={`Select color ${rgbaToHex(swatch)}`}
+            key={swatch.name}
+            className={`color-swatch ${rgbaEqual(swatch.rgba, color) ? "active" : ""}`}
+            style={{ background: rgbaToHex(swatch.rgba) }}
+            onClick={() => onSetColor(swatch.rgba)}
+            title={rgbaToHex(swatch.rgba)}
+            aria-label={`Select color ${swatch.name}`}
             data-testid={`color-swatch-${i}`}
           />
         ))}
