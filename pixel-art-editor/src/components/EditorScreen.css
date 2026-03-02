@@ -1,0 +1,41 @@
+.editor-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #12121e;
+}
+
+.editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #3d1c1c;
+  border-bottom: 1px solid #6b2c2c;
+  color: #f0a0a0;
+  font-size: 13px;
+}
+
+.editor-error-dismiss {
+  background: none;
+  border: none;
+  color: #f0a0a0;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.editor-error-dismiss:hover {
+  color: #fff;
+}
+
+.model-canvas {
+  display: none;
+}

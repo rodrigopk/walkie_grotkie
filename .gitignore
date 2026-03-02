@@ -24,6 +24,10 @@ venv/
 *.swp
 *.swo
 
+# Pixel art editor
+pixel-art-editor/node_modules/
+pixel-art-editor/dist/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,0 +1,70 @@
+.startup-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #1a1a2e;
+}
+
+.startup-card {
+  background: #16213e;
+  border-radius: 16px;
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 320px;
+}
+
+.startup-title {
+  margin: 0 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #e8e8e8;
+}
+
+.startup-subtitle {
+  margin: 0 0 32px;
+  font-size: 14px;
+  color: #8888aa;
+}
+
+.startup-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.startup-btn {
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #0f3460;
+  color: #e8e8e8;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.startup-btn:hover {
+  background: #1a5276;
+  transform: translateY(-1px);
+}
+
+.startup-btn:active {
+  transform: translateY(0);
+}
+
+.startup-file-input {
+  display: none;
+}
+
+.startup-error {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  background: #3d1c1c;
+  border: 1px solid #6b2c2c;
+  border-radius: 6px;
+  color: #f0a0a0;
+  font-size: 13px;
+}

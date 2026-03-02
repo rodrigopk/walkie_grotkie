@@ -1,0 +1,30 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border-top: 1px solid #333;
+  font-size: 12px;
+  font-family: monospace;
+  color: #999;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-color-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #555;
+  border-radius: 2px;
+}
+
+.status-dirty {
+  color: #e8a040;
+  font-weight: 600;
+}
