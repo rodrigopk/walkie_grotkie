@@ -31,15 +31,27 @@ export function StartupScreen({
         <p className="startup-subtitle">64 × 64 pixel canvas</p>
 
         <div className="startup-buttons">
-          <button className="startup-btn" onClick={onStartNew}>
+          <button
+            className="startup-btn"
+            onClick={onStartNew}
+            aria-label="Start new canvas"
+            data-testid="startup-start-new"
+          >
             Start New
           </button>
-          <button className="startup-btn" onClick={onLoadGrot}>
+          <button
+            className="startup-btn"
+            onClick={onLoadGrot}
+            aria-label="Load grot default image"
+            data-testid="startup-load-grot"
+          >
             Load Grot
           </button>
           <button
             className="startup-btn"
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Open PNG file"
+            data-testid="startup-open-file"
           >
             Open File...
           </button>
@@ -50,10 +62,16 @@ export function StartupScreen({
           type="file"
           accept=".png,image/png"
           className="startup-file-input"
+          aria-label="Startup file input"
+          data-testid="startup-file-input"
           onChange={handleFileChange}
         />
 
-        {error && <p className="startup-error">{error}</p>}
+        {error && (
+          <p className="startup-error" role="alert" data-testid="startup-error">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );

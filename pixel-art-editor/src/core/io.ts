@@ -1,15 +1,19 @@
 import { PixelBuffer, W, H } from "./PixelBuffer";
 
-export async function exportPng(
-  model: HTMLCanvasElement,
-  filename = "pixel-art-64x64.png",
-): Promise<void> {
-  const blob = await new Promise<Blob>((resolve, reject) => {
+export async function exportPngBlob(model: HTMLCanvasElement): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
     model.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
       "image/png",
     );
   });
+}
+
+export async function exportPng(
+  model: HTMLCanvasElement,
+  filename = "pixel-art-64x64.png",
+): Promise<void> {
+  const blob = await exportPngBlob(model);
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement("a");

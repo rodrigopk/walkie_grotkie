@@ -62,12 +62,16 @@ function rgbaEqual(a: RGBA, b: RGBA): boolean {
 export function ColorPalette({ color, onSetColor }: ColorPaletteProps) {
   return (
     <div className="color-palette">
-      <div className="color-current">
+      <div className="color-current" data-testid="color-current">
         <div
           className="color-current-swatch"
           style={{ background: rgbaToHex(color) }}
+          aria-label={`Current color ${rgbaToHex(color)}`}
+          data-testid="color-current-swatch"
         />
-        <span className="color-current-hex">{rgbaToHex(color)}</span>
+        <span className="color-current-hex" data-testid="color-current-hex">
+          {rgbaToHex(color)}
+        </span>
       </div>
 
       <div className="color-swatches">
@@ -78,6 +82,8 @@ export function ColorPalette({ color, onSetColor }: ColorPaletteProps) {
             style={{ background: rgbaToHex(swatch) }}
             onClick={() => onSetColor(swatch)}
             title={rgbaToHex(swatch)}
+            aria-label={`Select color ${rgbaToHex(swatch)}`}
+            data-testid={`color-swatch-${i}`}
           />
         ))}
       </div>
@@ -89,6 +95,8 @@ export function ColorPalette({ color, onSetColor }: ColorPaletteProps) {
           className="color-picker-input"
           value={rgbaToHex(color)}
           onChange={(e) => onSetColor(hexToRgba(e.target.value))}
+          aria-label="Custom color picker"
+          data-testid="color-picker-input"
         />
       </label>
     </div>

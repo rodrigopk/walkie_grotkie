@@ -1,73 +1,111 @@
-# React + TypeScript + Vite
+# Pixel Art Editor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+64x64 pixel editor with import/export support and an automation contract for coding agents.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `npm run dev` - start local Vite dev server.
+- `npm run build` - run TypeScript build + production bundle.
+- `npm run lint` - run ESLint.
+- `npm run test` - run Vitest unit tests.
+- `npm run e2e` - run Playwright E2E tests.
+- `npm run e2e:headed` - run Playwright with visible browser.
 
-## React Compiler
+## Agent Automation Contract
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The app exposes two automation surfaces:
 
-## Expanding the ESLint configuration
+1. Stable selectors (`data-testid`) and accessible labels for UI controls.
+2. A development/test API on `window.pixelEditorApi` for deterministic canvas operations.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Important limits
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- `window.pixelEditorApi` is available only in development and test modes.
+- Production builds do not expose this API.
+- Use UI selectors when you want user-like interactions; use the API for deterministic pixel operations/assertions.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Stable Selectors
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Startup
+
+- `startup-start-new`
+- `startup-load-grot`
+- `startup-open-file`
+- `startup-file-input`
+- `startup-error`
+
+### Toolbar
+
+- `tool-brush`
+- `tool-eraser`
+- `tool-fill`
+- `tool-picker`
+- `toolbar-undo`
+- `toolbar-redo`
+- `toolbar-grid-toggle`
+- `toolbar-export`
+- `toolbar-import`
+- `toolbar-import-input`
+- `toolbar-new`
+
+### Canvas and Status
+
+- `canvas-viewport-wrapper`
+- `canvas-viewport`
+- `model-canvas`
+- `status-bar`
+- `status-cursor`
+- `status-color`
+- `status-tool`
+- `status-dirty`
+- `editor-error`
+- `editor-error-dismiss`
+
+### Colors
+
+- `color-current`
+- `color-current-swatch`
+- `color-current-hex`
+- `color-picker-input`
+- `color-swatch-<index>`
+
+## `window.pixelEditorApi` Methods
+
+```ts
+interface PixelEditorApi {
+  setTool(tool: "brush" | "eraser" | "fill" | "picker"): void;
+  setColor(color: [number, number, number, number] | string): void; // string: #RGB or #RRGGBB
+  setPixel(x: number, y: number, color?: [number, number, number, number] | string): void;
+  fill(x: number, y: number, color?: [number, number, number, number] | string): void;
+  getPixel(x: number, y: number): [number, number, number, number];
+  getState(): {
+    phase: "startup" | "editor";
+    tool: "brush" | "eraser" | "fill" | "picker";
+    color: [number, number, number, number];
+    showGrid: boolean;
+    dirty: boolean;
+    canUndo: boolean;
+    canRedo: boolean;
+  };
+  getBufferHash(): string;
+  getBuffer(): Uint8ClampedArray;
+  importPngFile(file: File): Promise<void>;
+  exportPngBlob(): Promise<Blob>;
+}
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Example Agent Session
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```ts
+await page.goto("/");
+await page.getByTestId("startup-start-new").click();
+await page.waitForFunction(() => Boolean(window.pixelEditorApi));
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+await page.evaluate(() => {
+  window.pixelEditorApi?.setColor("#ff0000");
+  window.pixelEditorApi?.setPixel(10, 10);
+});
+
+const hash = await page.evaluate(() => window.pixelEditorApi?.getBufferHash());
+expect(hash).toBeTruthy();
 ```

@@ -27,13 +27,13 @@ const TOOL_LABELS: Record<ToolType, string> = {
 
 export function StatusBar({ cursorInfo, tool, dirty }: StatusBarProps) {
   return (
-    <div className="status-bar">
-      <span className="status-item">
+    <div className="status-bar" aria-label="Editor status bar" data-testid="status-bar">
+      <span className="status-item" data-testid="status-cursor">
         {cursorInfo
           ? `(${cursorInfo.x}, ${cursorInfo.y})`
           : "—"}
       </span>
-      <span className="status-item">
+      <span className="status-item" data-testid="status-color">
         {cursorInfo && (
           <>
             <span
@@ -44,8 +44,12 @@ export function StatusBar({ cursorInfo, tool, dirty }: StatusBarProps) {
           </>
         )}
       </span>
-      <span className="status-item">{TOOL_LABELS[tool]}</span>
-      {dirty && <span className="status-item status-dirty">Modified</span>}
+      <span className="status-item" data-testid="status-tool">{TOOL_LABELS[tool]}</span>
+      {dirty && (
+        <span className="status-item status-dirty" data-testid="status-dirty">
+          Modified
+        </span>
+      )}
     </div>
   );
 }

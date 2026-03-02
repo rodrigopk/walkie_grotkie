@@ -10,7 +10,13 @@ import {
 } from "../core/tools";
 import type { ToolType } from "../core/tools";
 import { renderToModel, renderToViewport, pointerToCell } from "../core/render";
-import { exportPng, importPng, loadDefaultAsset } from "../core/io";
+import { exportPng, exportPngBlob, importPng, loadDefaultAsset } from "../core/io";
+import {
+  attachPixelEditorApi,
+  hashBytes,
+  parseColorInput,
+  shouldExposeAutomationApi,
+} from "../core/automation";
 
 export interface CursorInfo {
   x: number;
@@ -42,6 +48,7 @@ export interface PixelEditorActions {
   handlePointerDown: (e: React.PointerEvent) => void;
   handlePointerMove: (e: React.PointerEvent) => void;
   handlePointerUp: () => void;
+  openImportPicker: () => void;
   goToStartup: () => void;
 }
 
@@ -64,6 +71,15 @@ export function usePixelEditor() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const assertCellInBounds = useCallback((x: number, y: number) => {
+    if (!Number.isInteger(x) || !Number.isInteger(y)) {
+      throw new Error(`Cell coordinates must be integers: (${x}, ${y})`);
+    }
+    if (x < 0 || x >= 64 || y < 0 || y >= 64) {
+      throw new Error(`Cell out of bounds: (${x}, ${y})`);
+    }
+  }, []);
 
   const syncHistoryState = useCallback(() => {
     setCanUndo(historyRef.current.canUndo);
@@ -94,6 +110,26 @@ export function usePixelEditor() {
     },
     [repaint],
   );
+
+  const getBufferSnapshot = useCallback(() => {
+    return new Uint8ClampedArray(bufferRef.current.data);
+  }, []);
+
+  const getBufferHash = useCallback(() => {
+    return hashBytes(bufferRef.current.data);
+  }, []);
+
+  const getStateSnapshot = useCallback(() => {
+    return {
+      phase,
+      tool,
+      color,
+      showGrid,
+      dirty,
+      canUndo,
+      canRedo,
+    };
+  }, [phase, tool, color, showGrid, dirty, canUndo, canRedo]);
 
   // --- Initialization ---
 
@@ -289,6 +325,68 @@ export function usePixelEditor() {
     [pushHistory, repaint, syncHistoryState],
   );
 
+  const openImportPicker = useCallback(() => {
+    const input = document.querySelector<HTMLInputElement>(
+      '[data-testid="toolbar-import-input"]',
+    );
+    if (input) {
+      input.click();
+      return;
+    }
+    setError("Import input is not available yet");
+  }, []);
+
+  const setPixelAt = useCallback(
+    (x: number, y: number, colorInput?: RGBA | string) => {
+      assertCellInBounds(x, y);
+      const nextColor = colorInput ? parseColorInput(colorInput) : color;
+      pushHistory();
+      applyBrush(bufferRef.current, x, y, nextColor);
+      setDirty(true);
+      repaint();
+      syncHistoryState();
+    },
+    [assertCellInBounds, color, pushHistory, repaint, syncHistoryState],
+  );
+
+  const fillAt = useCallback(
+    (x: number, y: number, colorInput?: RGBA | string) => {
+      assertCellInBounds(x, y);
+      const nextColor = colorInput ? parseColorInput(colorInput) : color;
+      pushHistory();
+      applyFill(bufferRef.current, x, y, nextColor);
+      setDirty(true);
+      repaint();
+      syncHistoryState();
+    },
+    [assertCellInBounds, color, pushHistory, repaint, syncHistoryState],
+  );
+
+  const getPixelAt = useCallback(
+    (x: number, y: number) => {
+      assertCellInBounds(x, y);
+      return bufferRef.current.getRGBA(x, y);
+    },
+    [assertCellInBounds],
+  );
+
+  const importPngFromApi = useCallback(
+    async (file: File) => {
+      if (phase === "startup") {
+        await initFromFile(file);
+        return;
+      }
+      await handleImport(file);
+    },
+    [phase, initFromFile, handleImport],
+  );
+
+  const exportPngBlobForApi = useCallback(async () => {
+    const model = modelRef.current ?? document.createElement("canvas");
+    renderToModel(bufferRef.current, model);
+    return exportPngBlob(model);
+  }, []);
+
   const toggleGrid = useCallback(() => {
     setShowGrid((g) => !g);
   }, []);
@@ -329,14 +427,7 @@ export function usePixelEditor() {
       }
       if (mod && e.key === "o") {
         e.preventDefault();
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".png,image/png";
-        input.onchange = () => {
-          const file = input.files?.[0];
-          if (file) handleImport(file);
-        };
-        input.click();
+        openImportPicker();
         return;
       }
 
@@ -353,7 +444,33 @@ export function usePixelEditor() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [phase, undo, redo, handleExport, handleImport, toggleGrid]);
+  }, [phase, undo, redo, handleExport, openImportPicker, toggleGrid]);
+
+  useEffect(() => {
+    if (!shouldExposeAutomationApi()) return;
+    return attachPixelEditorApi({
+      setTool,
+      setColor: (nextColor) => setColor(parseColorInput(nextColor)),
+      setPixel: setPixelAt,
+      fill: fillAt,
+      getPixel: getPixelAt,
+      getState: getStateSnapshot,
+      getBufferHash,
+      getBuffer: getBufferSnapshot,
+      importPngFile: importPngFromApi,
+      exportPngBlob: exportPngBlobForApi,
+    });
+  }, [
+    setTool,
+    setPixelAt,
+    fillAt,
+    getPixelAt,
+    getStateSnapshot,
+    getBufferHash,
+    getBufferSnapshot,
+    importPngFromApi,
+    exportPngBlobForApi,
+  ]);
 
   const state: PixelEditorState = {
     tool,
@@ -379,6 +496,7 @@ export function usePixelEditor() {
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    openImportPicker,
     goToStartup,
   };
 

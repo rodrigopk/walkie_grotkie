@@ -57,6 +57,9 @@ export function Toolbar({
             className={`toolbar-btn ${tool === t.type ? "active" : ""}`}
             onClick={() => onSetTool(t.type)}
             title={`${t.label} (${t.shortcut})`}
+            aria-label={`${t.label} tool`}
+            aria-pressed={tool === t.type}
+            data-testid={`tool-${t.type}`}
           >
             {t.label}
           </button>
@@ -71,6 +74,8 @@ export function Toolbar({
           onClick={onUndo}
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+          data-testid="toolbar-undo"
         >
           Undo
         </button>
@@ -79,6 +84,8 @@ export function Toolbar({
           onClick={onRedo}
           disabled={!canRedo}
           title="Redo (Ctrl+Shift+Z)"
+          aria-label="Redo"
+          data-testid="toolbar-redo"
         >
           Redo
         </button>
@@ -91,6 +98,9 @@ export function Toolbar({
           className={`toolbar-btn ${showGrid ? "active" : ""}`}
           onClick={onToggleGrid}
           title="Toggle Grid (G)"
+          aria-label="Toggle grid"
+          aria-pressed={showGrid}
+          data-testid="toolbar-grid-toggle"
         >
           Grid
         </button>
@@ -103,6 +113,8 @@ export function Toolbar({
           className="toolbar-btn toolbar-btn-action"
           onClick={onExport}
           title="Export PNG (Ctrl+S)"
+          aria-label="Export PNG"
+          data-testid="toolbar-export"
         >
           Export{dirty ? " *" : ""}
         </button>
@@ -110,10 +122,17 @@ export function Toolbar({
           className="toolbar-btn toolbar-btn-action"
           onClick={() => fileInputRef.current?.click()}
           title="Import PNG (Ctrl+O)"
+          aria-label="Import PNG"
+          data-testid="toolbar-import"
         >
           Import
         </button>
-        <button className="toolbar-btn toolbar-btn-action" onClick={onNew}>
+        <button
+          className="toolbar-btn toolbar-btn-action"
+          onClick={onNew}
+          aria-label="Create new canvas"
+          data-testid="toolbar-new"
+        >
           New
         </button>
       </div>
@@ -123,6 +142,8 @@ export function Toolbar({
         type="file"
         accept=".png,image/png"
         className="toolbar-file-input"
+        aria-label="Editor import file input"
+        data-testid="toolbar-import-input"
         onChange={handleFileChange}
       />
     </div>

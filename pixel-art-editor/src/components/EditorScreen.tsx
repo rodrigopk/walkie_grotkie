@@ -42,9 +42,14 @@ export function EditorScreen({
       />
 
       {error && (
-        <div className="editor-error">
+        <div className="editor-error" role="alert" data-testid="editor-error">
           <span>{error}</span>
-          <button className="editor-error-dismiss" onClick={onDismissError}>
+          <button
+            className="editor-error-dismiss"
+            onClick={onDismissError}
+            aria-label="Dismiss error"
+            data-testid="editor-error-dismiss"
+          >
             ×
           </button>
         </div>
@@ -67,7 +72,12 @@ export function EditorScreen({
         dirty={state.dirty}
       />
 
-      <canvas ref={modelRef} className="model-canvas" />
+      <canvas
+        ref={modelRef}
+        className="model-canvas"
+        aria-hidden="true"
+        data-testid="model-canvas"
+      />
     </div>
   );
 }

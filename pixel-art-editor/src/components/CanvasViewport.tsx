@@ -20,6 +20,7 @@ export function CanvasViewport({
       className="canvas-viewport-wrapper"
       role="button"
       aria-label="Pixel art canvas"
+      data-testid="canvas-viewport-wrapper"
       tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -32,6 +33,8 @@ export function CanvasViewport({
         height={size}
         className="canvas-viewport"
         style={{ width: size, height: size }}
+        aria-label="Pixel art viewport"
+        data-testid="canvas-viewport"
       />
     </div>
   );
