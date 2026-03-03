@@ -106,10 +106,36 @@ class ChatSession:
                 yield text
 
 
+_SLASH_COMMANDS = {
+    "/quit": "Exit the chat",
+    "/exit": "Exit the chat",
+    "/bye":  "Exit the chat",
+    "/help": "Show this help message",
+}
+
+_EXIT_COMMANDS = frozenset({"/quit", "/exit", "/bye"})
+
+
+def _print_help(console: Console) -> None:
+    from rich.table import Table
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="bold cyan")
+    table.add_column(style="dim")
+    for cmd, description in _SLASH_COMMANDS.items():
+        table.add_row(cmd, description)
+    console.print(Panel(table, title="Commands", border_style="dim"))
+
+
 def _state_label(state: AnimationState | None) -> str:
     if state is None:
         return "none"
     return state.name.lower().replace("_", " ")
+
+
+_IDLE_REVERT_DELAY: float = 2.0
+
+_GREETING_PROMPT = "[system: greet the user briefly in character as Grot]"
 
 
 async def run_chat(
@@ -128,7 +154,7 @@ async def run_chat(
     console.print(
         Panel(
             "[bold]Grot Chat[/bold] — iDotMatrix + Claude",
-            subtitle="Ctrl-C to quit",
+            subtitle="Type [bold]/help[/bold] for commands  •  Ctrl-C to quit",
             style="cyan",
         )
     )
@@ -165,6 +191,9 @@ async def run_chat(
         )
         session = ChatSession(api_key=api_key, model=model)
 
+        await controller.transition(AnimationState.EXCITED)
+        await _send_greeting(console, session, controller)
+        await asyncio.sleep(_IDLE_REVERT_DELAY)
         await controller.transition(AnimationState.IDLE)
 
         try:
@@ -173,6 +202,34 @@ async def run_chat(
             await controller.shutdown()
 
     console.print("\n[dim]Disconnected. Goodbye![/dim]")
+
+
+async def _send_greeting(
+    console: Console,
+    session: ChatSession,
+    controller: AnimationController,
+) -> None:
+    """Stream a Claude-generated greeting and render it as Grot's opening message."""
+    session.add_user_message(_GREETING_PROMPT)
+    full_response = ""
+
+    with Live(
+        Spinner("dots", text="Grot is waking up...", style="yellow"),
+        console=console,
+        refresh_per_second=12,
+    ) as live:
+        async for chunk in session.stream_response():
+            full_response += chunk
+            display_text = strip_mood_tag(full_response)
+            live.update(
+                Panel(
+                    Markdown(display_text),
+                    title="[bold cyan]Grot[/bold cyan]",
+                    border_style="cyan",
+                )
+            )
+
+    session.add_assistant_message(full_response)
 
 
 async def _chat_loop(
@@ -193,8 +250,19 @@ async def _chat_loop(
         user_input = user_input.strip()
         if not user_input:
             continue
-        if user_input.lower() in ("quit", "exit", "bye"):
-            break
+
+        if user_input.startswith("/"):
+            cmd = user_input.lower()
+            if cmd in _EXIT_COMMANDS:
+                break
+            if cmd == "/help":
+                _print_help(console)
+            else:
+                console.print(
+                    f"[yellow]Unknown command:[/yellow] {user_input}  "
+                    f"(type [bold]/help[/bold] for available commands)"
+                )
+            continue
 
         session.add_user_message(user_input)
         await controller.transition(AnimationState.THINKING)
@@ -210,6 +278,7 @@ async def _chat_loop(
             async for chunk in session.stream_response():
                 full_response += chunk
                 if first_chunk:
+                    # Switch to TALKING as soon as the first token arrives
                     await controller.transition(AnimationState.TALKING)
                     first_chunk = False
                 display_text = strip_mood_tag(full_response)
@@ -221,18 +290,16 @@ async def _chat_loop(
                     )
                 )
 
-        display_text = strip_mood_tag(full_response)
-        console.print(
-            Panel(
-                Markdown(display_text),
-                title="[bold cyan]Grot[/bold cyan]",
-                border_style="cyan",
-            )
-        )
-
         session.add_assistant_message(full_response)
 
+        # Hold the TALKING animation for a moment, then settle into the mood
+        await asyncio.sleep(_IDLE_REVERT_DELAY)
         mood = extract_mood(full_response)
         await controller.transition(mood)
         console.print(f"  [dim]animation: {_state_label(mood)}[/dim]")
+
+        if mood != AnimationState.IDLE:
+            await asyncio.sleep(_IDLE_REVERT_DELAY)
+            await controller.transition(AnimationState.IDLE)
+
         console.print()

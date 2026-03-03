@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from collections.abc import Callable
 from enum import Enum, auto
 from pathlib import Path
@@ -18,9 +19,12 @@ from .service import DeviceService
 
 logger = logging.getLogger(__name__)
 
+ANIMATION_DURATION_S: float = 1.8
+
 
 class AnimationState(Enum):
     IDLE = auto()
+    IDLE_ALT = auto()
     THINKING = auto()
     TALKING = auto()
     TALKING_ALT = auto()
@@ -28,8 +32,9 @@ class AnimationState(Enum):
     DANCING = auto()
 
 ANIMATION_MAP: dict[AnimationState, str] = {
-    AnimationState.IDLE:        "grot-antenna/grot-antenna.gif",
-    AnimationState.THINKING:    "grot-dance/grot-dance.gif",
+    AnimationState.IDLE:        "grot-idle-3/grot-idle-3.gif",
+    AnimationState.IDLE_ALT:    "grot-idle-4/grot-idle-4.gif",
+    AnimationState.THINKING:    "grot-antenna/grot-antenna.gif",
     AnimationState.TALKING:     "grot-talking/grot-talking.gif",
     AnimationState.TALKING_ALT: "grot-talking-2/grot-talking-2.gif",
     AnimationState.EXCITED:     "grot-jump-flip/grot-jump-flip.gif",
@@ -108,6 +113,11 @@ class AnimationController:
 
         Cancels any in-flight upload, then starts sending the new animation
         in a background task.  No-ops if already in the requested state.
+
+        For TALKING, a random sequence is chosen each time from:
+          - grot-talking only
+          - grot-talking-2 only
+          - grot-talking followed by grot-talking-2 (with a timed gap)
         """
         if new_state == self._current_state:
             return
@@ -118,11 +128,34 @@ class AnimationController:
         if self._on_state_change is not None:
             self._on_state_change(new_state)
 
-        packets = self._registry.get_packets(new_state)
-        self._current_task = asyncio.create_task(
-            self._send(packets, new_state),
-            name=f"animation-{new_state.name}",
-        )
+        if new_state == AnimationState.TALKING:
+            sequence = self._pick_talking_sequence()
+            self._current_task = asyncio.create_task(
+                self._send_sequence(sequence, new_state),
+                name=f"animation-{new_state.name}",
+            )
+        else:
+            packets = self._registry.get_packets(new_state)
+            self._current_task = asyncio.create_task(
+                self._send(packets, new_state),
+                name=f"animation-{new_state.name}",
+            )
+
+    def _pick_talking_sequence(self) -> list[tuple[list[bytes], float]]:
+        """Randomly pick a talking animation sequence.
+
+        Returns a list of (packets, pre_delay) pairs where pre_delay is the
+        number of seconds to wait before sending those packets.
+        """
+        talking = self._registry.get_packets(AnimationState.TALKING)
+        talking_alt = self._registry.get_packets(AnimationState.TALKING_ALT)
+        choice = random.randint(0, 2)
+        if choice == 0:
+            return [(talking, 0.0)]
+        elif choice == 1:
+            return [(talking_alt, 0.0)]
+        else:
+            return [(talking, 0.0), (talking_alt, ANIMATION_DURATION_S)]
 
     async def _send(self, packets: list[bytes], state: AnimationState) -> None:
         try:
@@ -132,6 +165,22 @@ class AnimationController:
             logger.debug("Animation upload cancelled: %s", state.name)
         except Exception:
             logger.exception("Animation upload failed: %s", state.name)
+
+    async def _send_sequence(
+        self,
+        sequence: list[tuple[list[bytes], float]],
+        state: AnimationState,
+    ) -> None:
+        try:
+            for packets, pre_delay in sequence:
+                if pre_delay > 0:
+                    await asyncio.sleep(pre_delay)
+                await self._device.send_packets(packets)
+            logger.debug("Animation sequence complete: %s", state.name)
+        except asyncio.CancelledError:
+            logger.debug("Animation sequence cancelled: %s", state.name)
+        except Exception:
+            logger.exception("Animation sequence failed: %s", state.name)
 
     async def _cancel_current(self) -> None:
         if self._current_task is not None and not self._current_task.done():

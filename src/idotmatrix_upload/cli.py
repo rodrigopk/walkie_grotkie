@@ -29,6 +29,18 @@ def _setup_logging(verbose: bool) -> None:
     )
 
 
+def _setup_debug_file_logging(log_path: Path) -> None:
+    """Route DEBUG-level logs to a file, leaving the terminal clean."""
+    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
+    )
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.addHandler(handler)
+
+
 def _parse_size(size_str: str) -> tuple[int, int]:
     """Parse a WxH size string into a (width, height) tuple."""
     try:
@@ -218,7 +230,11 @@ def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: 
 )
 @click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
 @click.option("--no-cache", is_flag=True, help="Skip device address cache.")
-@click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
+@click.option(
+    "-d", "--debug",
+    is_flag=True,
+    help="Write debug logs to grot-chat.log (keeps terminal clean).",
+)
 def chat(
     device_addr: str | None,
     device_name: str,
@@ -227,10 +243,11 @@ def chat(
     api_key: str,
     chunk_size: int,
     no_cache: bool,
-    verbose: bool,
+    debug: bool,
 ) -> None:
     """Start an interactive chat with Grot on your iDotMatrix device."""
-    _setup_logging(verbose)
+    if debug:
+        _setup_debug_file_logging(Path("grot-chat.log"))
 
     from .ble import BLEConnectionError
     from .chat import run_chat

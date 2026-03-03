@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 
 from idotmatrix_upload.animations import AnimationState
-from idotmatrix_upload.chat import extract_mood, strip_mood_tag
+from idotmatrix_upload.chat import (
+    _EXIT_COMMANDS,
+    _SLASH_COMMANDS,
+    extract_mood,
+    strip_mood_tag,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -67,3 +72,25 @@ class TestStripMoodTag:
 
     def test_only_mood_tag(self):
         assert strip_mood_tag("[mood:thinking]") == ""
+
+
+# ---------------------------------------------------------------------------
+# Slash commands
+# ---------------------------------------------------------------------------
+
+
+class TestSlashCommands:
+    def test_exit_commands_are_slash_prefixed(self):
+        for cmd in _EXIT_COMMANDS:
+            assert cmd.startswith("/"), f"{cmd!r} should start with /"
+
+    def test_all_exit_commands_in_slash_commands(self):
+        for cmd in _EXIT_COMMANDS:
+            assert cmd in _SLASH_COMMANDS
+
+    def test_help_command_registered(self):
+        assert "/help" in _SLASH_COMMANDS
+
+    def test_old_bare_keywords_not_exit_commands(self):
+        for word in ("quit", "exit", "bye"):
+            assert word not in _EXIT_COMMANDS

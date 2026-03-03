@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from idotmatrix_upload.animations import (
     ANIMATION_MAP,
+    ANIMATION_DURATION_S,
     AnimationController,
     AnimationRegistry,
     AnimationState,
@@ -170,4 +171,116 @@ class TestAnimationController:
         controller = AnimationController(device, registry)
         await controller.transition(AnimationState.DANCING)
 
+        await controller.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# Talking sequence
+# ---------------------------------------------------------------------------
+
+
+class TestTalkingSequence:
+    @pytest.mark.asyncio
+    async def test_talking_sends_at_least_one_packet_set(self, tmp_path: Path):
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        controller = AnimationController(device, registry)
+        await controller.transition(AnimationState.TALKING)
+        await asyncio.sleep(0.05)
+
+        assert device.send_packets.call_count >= 1
+        assert controller.current_state == AnimationState.TALKING
+
+    @pytest.mark.asyncio
+    async def test_talking_choice_0_sends_talking_only(self, tmp_path: Path):
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        controller = AnimationController(device, registry)
+        with patch("idotmatrix_upload.animations.random.randint", return_value=0):
+            await controller.transition(AnimationState.TALKING)
+            await asyncio.sleep(0.05)
+
+        assert device.send_packets.call_count == 1
+        assert device.send_packets.call_args[0][0] == registry.get_packets(AnimationState.TALKING)
+
+    @pytest.mark.asyncio
+    async def test_talking_choice_1_sends_talking_alt_only(self, tmp_path: Path):
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        controller = AnimationController(device, registry)
+        with patch("idotmatrix_upload.animations.random.randint", return_value=1):
+            await controller.transition(AnimationState.TALKING)
+            await asyncio.sleep(0.05)
+
+        assert device.send_packets.call_count == 1
+        assert device.send_packets.call_args[0][0] == registry.get_packets(AnimationState.TALKING_ALT)
+
+    @pytest.mark.asyncio
+    async def test_talking_choice_2_sends_both_with_delay(self, tmp_path: Path):
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        controller = AnimationController(device, registry)
+        # Patch ANIMATION_DURATION_S to 0 so the real asyncio.sleep returns
+        # immediately, letting the background task finish quickly.
+        with (
+            patch("idotmatrix_upload.animations.random.randint", return_value=2),
+            patch("idotmatrix_upload.animations.ANIMATION_DURATION_S", 0.0),
+        ):
+            await controller.transition(AnimationState.TALKING)
+            await asyncio.sleep(0.1)
+
+        assert device.send_packets.call_count == 2
+        first_call_packets = device.send_packets.call_args_list[0][0][0]
+        second_call_packets = device.send_packets.call_args_list[1][0][0]
+        assert first_call_packets == registry.get_packets(AnimationState.TALKING)
+        assert second_call_packets == registry.get_packets(AnimationState.TALKING_ALT)
+
+    @pytest.mark.asyncio
+    async def test_pick_talking_sequence_uses_animation_duration(self, tmp_path: Path):
+        """Verify that the two-animation sequence uses ANIMATION_DURATION_S as pre-delay."""
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        controller = AnimationController(device, registry)
+        with patch("idotmatrix_upload.animations.random.randint", return_value=2):
+            sequence = controller._pick_talking_sequence()
+
+        assert len(sequence) == 2
+        _, first_delay = sequence[0]
+        _, second_delay = sequence[1]
+        assert first_delay == 0.0
+        assert second_delay == ANIMATION_DURATION_S
+
+    @pytest.mark.asyncio
+    async def test_talking_sequence_is_cancellable(self, tmp_path: Path):
+        anim_dir = _create_animation_dir(tmp_path)
+        registry = AnimationRegistry(anim_dir)
+        registry.preload()
+        device = _mock_device()
+
+        stall = asyncio.Event()
+        device.send_packets = AsyncMock(side_effect=lambda *a, **kw: stall.wait())
+
+        controller = AnimationController(device, registry)
+        with patch("idotmatrix_upload.animations.random.randint", return_value=2):
+            await controller.transition(AnimationState.TALKING)
+
+        await controller.transition(AnimationState.IDLE)
+        assert controller.current_state == AnimationState.IDLE
+
+        stall.set()
         await controller.shutdown()
