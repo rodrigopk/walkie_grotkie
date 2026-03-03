@@ -84,6 +84,7 @@ interface PixelEditorApi {
   getBuffer(): Uint8ClampedArray; // 64 * 64 * 4 bytes
   importPngFile(file: File): Promise<void>;
   exportPngBlob(): Promise<Blob>;
+  exportPngBlobToPath(filePath: string): Promise<void>;
 }
 ```
 
@@ -346,6 +347,28 @@ const bytes = await page.evaluate(async () => {
 ```
 
 Use this path for roundtrip tests (export -> import -> hash compare).
+
+### Option 3: Direct filesystem export (dev mode only)
+
+Save a PNG directly to the host filesystem without dialogs or base64 encoding.
+The path must be absolute and within the repository root.
+
+Playwright-style:
+
+```ts
+await page.evaluate(async () => {
+  await window.pixelEditorApi!.exportPngBlobToPath('/absolute/path/to/output.png');
+});
+```
+
+Via `javascript:` URL navigation (cursor-ide-browser MCP):
+
+```
+javascript:void(window.pixelEditorApi.exportPngBlobToPath('/absolute/path/to/output.png'))
+```
+
+This is the recommended export method for agents — it eliminates the base64
+textarea workaround described in the `javascript:` URL section above.
 
 ## Validation Patterns
 

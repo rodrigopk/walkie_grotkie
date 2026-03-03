@@ -387,6 +387,19 @@ export function usePixelEditor() {
     return exportPngBlob(model);
   }, []);
 
+  const exportPngBlobToPathForApi = useCallback(async (filePath: string) => {
+    const blob = await exportPngBlobForApi();
+    const resp = await fetch("/__api/save-png", {
+      method: "POST",
+      headers: { "x-file-path": filePath },
+      body: blob,
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Failed to save PNG to ${filePath}: ${text}`);
+    }
+  }, [exportPngBlobForApi]);
+
   const toggleGrid = useCallback(() => {
     setShowGrid((g) => !g);
   }, []);
@@ -459,6 +472,7 @@ export function usePixelEditor() {
       getBuffer: getBufferSnapshot,
       importPngFile: importPngFromApi,
       exportPngBlob: exportPngBlobForApi,
+      exportPngBlobToPath: exportPngBlobToPathForApi,
     });
   }, [
     setTool,
@@ -470,6 +484,7 @@ export function usePixelEditor() {
     getBufferSnapshot,
     importPngFromApi,
     exportPngBlobForApi,
+    exportPngBlobToPathForApi,
   ]);
 
   const state: PixelEditorState = {

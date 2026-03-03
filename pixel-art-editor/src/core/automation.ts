@@ -22,6 +22,7 @@ export interface PixelEditorApi {
   getBuffer: () => Uint8ClampedArray;
   importPngFile: (file: File) => Promise<void>;
   exportPngBlob: () => Promise<Blob>;
+  exportPngBlobToPath: (filePath: string) => Promise<void>;
 }
 
 declare global {
