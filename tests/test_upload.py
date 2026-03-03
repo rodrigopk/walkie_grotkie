@@ -2,54 +2,41 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from idotmatrix_upload.ble import BLEConnectionError
 from idotmatrix_upload.generate import generate_spinning_number_gif
 from idotmatrix_upload.preprocess import ValidationError
-from idotmatrix_upload.protocol import ACK_COMPLETE, ACK_OK
-from idotmatrix_upload.upload import UploadError, upload_gifs
+from idotmatrix_upload.upload import upload_gifs
 
 
-def _make_mock_connection():
-    conn = MagicMock()
-    conn.address = "AA:BB:CC:DD:EE:FF"
-    conn.mtu_size = 512
-    conn.write = AsyncMock()
-    conn.disconnect = AsyncMock()
-    return conn
+def _make_mock_service():
+    """Build a mock DeviceService that records upload_gif calls."""
+    svc = AsyncMock()
+    svc.upload_gif = AsyncMock()
+    svc.connect = AsyncMock()
+    svc.disconnect = AsyncMock()
+    svc.is_connected = True
+    svc.address = "AA:BB:CC:DD:EE:FF"
+    return svc
 
 
-def _auto_ack_connect(ack_sequence: list[bytes] | None = None):
-    """Create a mock connect that auto-fires ACK notifications.
+def _patch_device_service(mock_svc=None):
+    """Return a context manager that patches DeviceService in upload module.
 
-    If ack_sequence is None, always sends ACK_OK.
+    The patched class returns *mock_svc* (or a fresh mock) from ``__aenter__``.
     """
-    ack_iter = iter(ack_sequence) if ack_sequence else None
+    if mock_svc is None:
+        mock_svc = _make_mock_service()
 
-    async def mock_connect(address, on_notification=None, **kwargs):
-        conn = _make_mock_connection()
-        call_count = 0
+    mock_cls = MagicMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_svc)
+    mock_ctx.__aexit__ = AsyncMock(return_value=False)
+    mock_cls.return_value = mock_ctx
 
-        async def mock_write(data):
-            nonlocal call_count
-            if on_notification is not None:
-                if ack_iter is not None:
-                    try:
-                        ack = next(ack_iter)
-                    except StopIteration:
-                        ack = ACK_OK
-                else:
-                    ack = ACK_OK
-                on_notification(ack)
-            call_count += 1
-
-        conn.write = AsyncMock(side_effect=mock_write)
-        return conn
-
-    return mock_connect
+    return patch("idotmatrix_upload.upload.DeviceService", mock_cls), mock_svc, mock_cls
 
 
 @pytest.fixture
@@ -70,36 +57,29 @@ def two_gifs(tmp_path: Path) -> list[Path]:
 
 
 class TestUploadGifs:
-    @pytest.fixture(autouse=True)
-    def _mock_cache(self):
-        """Prevent tests from touching the real cache file on disk."""
-        with patch("idotmatrix_upload.upload.add_to_cache"), \
-             patch("idotmatrix_upload.upload.load_cache", return_value=[]):
-            yield
-
     @pytest.mark.asyncio
     async def test_single_gif_upload(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ):
+        patcher, mock_svc, _ = _patch_device_service()
+        with patcher:
             await upload_gifs(
                 [single_gif],
                 device_address="AA:BB:CC:DD:EE:FF",
                 preprocess=False,
             )
 
+        mock_svc.upload_gif.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_multi_gif_upload(self, two_gifs: list[Path]):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ):
+        patcher, mock_svc, _ = _patch_device_service()
+        with patcher:
             await upload_gifs(
                 two_gifs,
                 device_address="AA:BB:CC:DD:EE:FF",
                 preprocess=False,
             )
+
+        assert mock_svc.upload_gif.await_count == 2
 
     @pytest.mark.asyncio
     async def test_progress_callback(self, single_gif: Path):
@@ -108,10 +88,16 @@ class TestUploadGifs:
         def on_progress(file_idx, total_files, chunk_idx, total_chunks):
             progress_calls.append((file_idx, total_files, chunk_idx, total_chunks))
 
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ):
+        mock_svc = _make_mock_service()
+
+        async def fake_upload_gif(gif_data, chunk_size=4096, on_progress=None):
+            if on_progress is not None:
+                on_progress(0, 1)
+
+        mock_svc.upload_gif = AsyncMock(side_effect=fake_upload_gif)
+
+        patcher, _, _ = _patch_device_service(mock_svc)
+        with patcher:
             await upload_gifs(
                 [single_gif],
                 device_address="AA:BB:CC:DD:EE:FF",
@@ -120,110 +106,16 @@ class TestUploadGifs:
             )
 
         assert len(progress_calls) >= 1
-        for file_idx, total_files, chunk_idx, total_chunks in progress_calls:
-            assert file_idx == 0
-            assert total_files == 1
-            assert 0 <= chunk_idx < total_chunks
-
-    @pytest.mark.asyncio
-    async def test_ack_timeout_triggers_retry(self, single_gif: Path):
-        call_count = 0
-
-        async def mock_connect(address, on_notification=None, **kwargs):
-            conn = _make_mock_connection()
-
-            async def mock_write(data):
-                nonlocal call_count
-                call_count += 1
-                # Succeed only on the second attempt
-                if call_count >= 2 and on_notification is not None:
-                    on_notification(ACK_OK)
-
-            conn.write = AsyncMock(side_effect=mock_write)
-            return conn
-
-        with patch("idotmatrix_upload.upload.ble.connect", side_effect=mock_connect):
-            await upload_gifs(
-                [single_gif],
-                device_address="AA:BB:CC:DD:EE:FF",
-                preprocess=False,
-                ack_timeout=0.1,
-            )
-
-        assert call_count >= 2
-
-    @pytest.mark.asyncio
-    async def test_retry_exhaustion_raises(self, single_gif: Path):
-        async def mock_connect(address, on_notification=None, **kwargs):
-            conn = _make_mock_connection()
-            # Never fire ACK
-            conn.write = AsyncMock()
-            return conn
-
-        with patch("idotmatrix_upload.upload.ble.connect", side_effect=mock_connect):
-            with pytest.raises(UploadError, match="failed after"):
-                await upload_gifs(
-                    [single_gif],
-                    device_address="AA:BB:CC:DD:EE:FF",
-                    preprocess=False,
-                    ack_timeout=0.05,
-                    max_retries=2,
-                )
-
-    @pytest.mark.asyncio
-    async def test_disconnect_on_failure(self, single_gif: Path):
-        mock_conn = _make_mock_connection()
-        mock_conn.write = AsyncMock()  # Never ACKs
-
-        async def mock_connect(address, on_notification=None, **kwargs):
-            return mock_conn
-
-        with patch("idotmatrix_upload.upload.ble.connect", side_effect=mock_connect):
-            with pytest.raises(UploadError):
-                await upload_gifs(
-                    [single_gif],
-                    device_address="AA:BB:CC:DD:EE:FF",
-                    preprocess=False,
-                    ack_timeout=0.05,
-                    max_retries=1,
-                )
-
-        mock_conn.disconnect.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_disconnect_on_success(self, single_gif: Path):
-        last_conn = None
-
-        async def mock_connect(address, on_notification=None, **kwargs):
-            nonlocal last_conn
-            conn = _make_mock_connection()
-
-            async def mock_write(data):
-                if on_notification is not None:
-                    on_notification(ACK_OK)
-
-            conn.write = AsyncMock(side_effect=mock_write)
-            last_conn = conn
-            return conn
-
-        with patch("idotmatrix_upload.upload.ble.connect", side_effect=mock_connect):
-            await upload_gifs(
-                [single_gif],
-                device_address="AA:BB:CC:DD:EE:FF",
-                preprocess=False,
-            )
-
-        assert last_conn is not None
-        last_conn.disconnect.assert_awaited_once()
+        file_idx, total_files, chunk_idx, total_chunks = progress_calls[0]
+        assert file_idx == 0
+        assert total_files == 1
 
     @pytest.mark.asyncio
     async def test_with_preprocessing(self, single_gif: Path, tmp_path: Path):
         processed_dir = tmp_path / "processed"
 
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ):
+        patcher, mock_svc, _ = _patch_device_service()
+        with patcher:
             await upload_gifs(
                 [single_gif],
                 device_address="AA:BB:CC:DD:EE:FF",
@@ -234,6 +126,7 @@ class TestUploadGifs:
         assert processed_dir.exists()
         processed_files = list(processed_dir.iterdir())
         assert len(processed_files) == 1
+        mock_svc.upload_gif.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_preprocessing_validation_error(self, tmp_path: Path):
@@ -248,58 +141,15 @@ class TestUploadGifs:
             )
 
     @pytest.mark.asyncio
-    async def test_scan_when_no_address(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.ble.scan",
-            new_callable=AsyncMock,
-            return_value=["AA:BB:CC:DD:EE:FF"],
-        ), patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ):
-            await upload_gifs(
-                [single_gif],
-                device_address=None,
-                preprocess=False,
-            )
-
-    @pytest.mark.asyncio
-    async def test_scan_no_device_found(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.ble.scan",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
-            with pytest.raises(BLEConnectionError, match="No iDotMatrix device found"):
-                await upload_gifs(
-                    [single_gif],
-                    device_address=None,
-                    preprocess=False,
-                )
-
-    @pytest.mark.asyncio
     async def test_empty_paths_noop(self):
         await upload_gifs([], device_address="AA:BB:CC:DD:EE:FF")
 
     @pytest.mark.asyncio
-    async def test_completion_notification_handled(self, single_gif: Path):
-        """Upload should succeed even when device sends 'complete' instead of 'ok'."""
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect([ACK_COMPLETE]),
-        ):
-            await upload_gifs(
-                [single_gif],
-                device_address="AA:BB:CC:DD:EE:FF",
-                preprocess=False,
-            )
-
-    @pytest.mark.asyncio
     async def test_upload_delay_sleeps_between_files(self, two_gifs: list[Path]):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        patcher, _, _ = _patch_device_service()
+        with patcher, patch(
+            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep:
             await upload_gifs(
                 two_gifs,
                 device_address="AA:BB:CC:DD:EE:FF",
@@ -311,10 +161,10 @@ class TestUploadGifs:
 
     @pytest.mark.asyncio
     async def test_upload_delay_not_applied_for_single_file(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        patcher, _, _ = _patch_device_service()
+        with patcher, patch(
+            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep:
             await upload_gifs(
                 [single_gif],
                 device_address="AA:BB:CC:DD:EE:FF",
@@ -326,10 +176,10 @@ class TestUploadGifs:
 
     @pytest.mark.asyncio
     async def test_upload_no_delay_by_default(self, two_gifs: list[Path]):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ), patch("idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        patcher, _, _ = _patch_device_service()
+        with patcher, patch(
+            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep:
             await upload_gifs(
                 two_gifs,
                 device_address="AA:BB:CC:DD:EE:FF",
@@ -339,113 +189,24 @@ class TestUploadGifs:
         mock_sleep.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_uses_cached_address(self, single_gif: Path):
-        cached_addr = "CC:CC:CC:CC:CC:CC"
-
-        probe_conn = _make_mock_connection()
-        probe_conn.disconnect = AsyncMock()
-        call_count = 0
-
-        async def mock_connect(address, on_notification=None, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if on_notification is None:
-                return probe_conn
-            conn = _make_mock_connection()
-
-            async def mock_write(data):
-                if on_notification is not None:
-                    on_notification(ACK_OK)
-
-            conn.write = AsyncMock(side_effect=mock_write)
-            return conn
-
-        with patch(
-            "idotmatrix_upload.upload.load_cache", return_value=[cached_addr]
-        ), patch(
-            "idotmatrix_upload.upload.ble.connect", side_effect=mock_connect
-        ), patch(
-            "idotmatrix_upload.upload.ble.scan", new_callable=AsyncMock
-        ) as mock_scan, patch(
-            "idotmatrix_upload.upload.add_to_cache"
-        ):
+    async def test_device_service_receives_params(self, single_gif: Path):
+        """Verify that upload_gifs forwards the right params to DeviceService."""
+        patcher, _, mock_cls = _patch_device_service()
+        with patcher:
             await upload_gifs(
                 [single_gif],
-                device_address=None,
+                device_address="DD:DD:DD:DD:DD:DD",
+                device_name_prefix="TEST-",
+                ack_timeout=1.5,
+                max_retries=5,
+                use_cache=False,
                 preprocess=False,
-                use_cache=True,
             )
 
-        mock_scan.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_cached_address_unreachable_falls_back_to_scan(self, single_gif: Path):
-        async def mock_connect(address, on_notification=None, **kwargs):
-            if on_notification is None:
-                raise BLEConnectionError("unreachable")
-            conn = _make_mock_connection()
-
-            async def mock_write(data):
-                if on_notification is not None:
-                    on_notification(ACK_OK)
-
-            conn.write = AsyncMock(side_effect=mock_write)
-            return conn
-
-        with patch(
-            "idotmatrix_upload.upload.load_cache", return_value=["BAD:AD:DR:ES:S0:00"]
-        ), patch(
-            "idotmatrix_upload.upload.ble.connect", side_effect=mock_connect
-        ), patch(
-            "idotmatrix_upload.upload.ble.scan",
-            new_callable=AsyncMock,
-            return_value=["AA:BB:CC:DD:EE:FF"],
-        ) as mock_scan, patch(
-            "idotmatrix_upload.upload.add_to_cache"
-        ):
-            await upload_gifs(
-                [single_gif],
-                device_address=None,
-                preprocess=False,
-                use_cache=True,
-            )
-
-        mock_scan.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_successful_connect_updates_cache(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ), patch(
-            "idotmatrix_upload.upload.add_to_cache"
-        ) as mock_add:
-            await upload_gifs(
-                [single_gif],
-                device_address="AA:BB:CC:DD:EE:FF",
-                preprocess=False,
-                use_cache=True,
-            )
-
-        mock_add.assert_called_once_with("AA:BB:CC:DD:EE:FF")
-
-    @pytest.mark.asyncio
-    async def test_scan_when_no_address_and_empty_cache(self, single_gif: Path):
-        with patch(
-            "idotmatrix_upload.upload.load_cache", return_value=[]
-        ), patch(
-            "idotmatrix_upload.upload.ble.scan",
-            new_callable=AsyncMock,
-            return_value=["AA:BB:CC:DD:EE:FF"],
-        ), patch(
-            "idotmatrix_upload.upload.ble.connect",
-            side_effect=_auto_ack_connect(),
-        ), patch(
-            "idotmatrix_upload.upload.add_to_cache"
-        ):
-            await upload_gifs(
-                [single_gif],
-                device_address=None,
-                preprocess=False,
-                use_cache=True,
-            )
+        mock_cls.assert_called_once_with(
+            device_address="DD:DD:DD:DD:DD:DD",
+            device_name_prefix="TEST-",
+            ack_timeout=1.5,
+            max_retries=5,
+            use_cache=False,
+        )

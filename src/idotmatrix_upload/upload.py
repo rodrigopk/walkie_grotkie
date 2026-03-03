@@ -1,7 +1,7 @@
 """Upload orchestration for iDotMatrix devices.
 
-Ties together preprocessing, protocol packet construction, and BLE transfer
-with notification-based flow control, retries, and progress reporting.
+Ties together preprocessing and the DeviceService for BLE transfer
+with progress reporting.
 """
 
 from __future__ import annotations
@@ -13,14 +13,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import ble, protocol
-from .device_cache import add_to_cache, load_cache
 from .preprocess import preprocess_batch
+from .service import DeviceService, UploadError
 
 logger = logging.getLogger(__name__)
 
-
-class UploadError(Exception):
-    """Raised when an upload fails after exhausting retries."""
+__all__ = ["UploadError", "upload_gifs"]
 
 
 async def upload_gifs(
@@ -73,96 +71,35 @@ async def upload_gifs(
         upload_paths = [r.output_path for r in results]
         logger.info("Preprocessing complete")
 
-    if device_address is not None:
-        logger.info("Using explicit device address: %s", device_address)
-    else:
-        if use_cache:
-            cached = load_cache()
-            for addr in cached:
-                logger.info("Trying cached device %s ...", addr)
-                try:
-                    probe = await ble.connect(addr, timeout=3.0)
-                    await probe.disconnect()
-                    device_address = addr
-                    add_to_cache(addr)
-                    logger.info("Cached device %s is reachable", addr)
-                    break
-                except (ble.BLEConnectionError, Exception):
-                    logger.debug("Cached device %s unreachable", addr)
-
-        if device_address is None:
-            logger.info("Scanning for devices...")
-            addresses = await ble.scan(name_prefix=device_name_prefix)
-            if not addresses:
-                raise ble.BLEConnectionError(
-                    f"No iDotMatrix device found with prefix '{device_name_prefix}'. "
-                    f"Make sure the device is powered on and within BLE range."
-                )
-            device_address = addresses[0]
-            logger.info("Using device: %s", device_address)
-
-    ack_event = asyncio.Event()
-    ack_result: str = ""
-
-    def on_notification(data: bytes) -> None:
-        nonlocal ack_result
-        ack_result = protocol.parse_ack(data)
-        ack_event.set()
-
-    connection = await ble.connect(
-        device_address,
-        on_notification=on_notification,
-    )
-
-    try:
+    async with DeviceService(
+        device_address=device_address,
+        device_name_prefix=device_name_prefix,
+        ack_timeout=ack_timeout,
+        max_retries=max_retries,
+        use_cache=use_cache,
+    ) as device:
         total_files = len(upload_paths)
         for file_idx, gif_path in enumerate(upload_paths):
             logger.info(
-                "Uploading file %d/%d: %s", file_idx + 1, total_files, gif_path.name
+                "Uploading file %d/%d: %s",
+                file_idx + 1,
+                total_files,
+                gif_path.name,
             )
             gif_data = gif_path.read_bytes()
-            packets = protocol.build_packets(gif_data, chunk_size)
-            total_chunks = len(packets)
 
-            for chunk_idx, packet in enumerate(packets):
-                for attempt in range(1, max_retries + 1):
-                    ack_event.clear()
-                    await connection.write(packet)
-
-                    try:
-                        await asyncio.wait_for(
-                            ack_event.wait(), timeout=ack_timeout
-                        )
-                    except asyncio.TimeoutError:
-                        if attempt < max_retries:
-                            logger.warning(
-                                "ACK timeout on chunk %d/%d (attempt %d/%d), retrying...",
-                                chunk_idx + 1,
-                                total_chunks,
-                                attempt,
-                                max_retries,
-                            )
-                            continue
-                        raise UploadError(
-                            f"Chunk {chunk_idx + 1}/{total_chunks} of {gif_path.name} "
-                            f"failed after {max_retries} retries. "
-                            f"The device may be out of range or unresponsive."
-                        )
-
-                    if ack_result == "complete":
-                        logger.info("Device signaled upload complete")
-                    break
-
+            def _file_progress(chunk_idx: int, total_chunks: int) -> None:
                 if on_progress is not None:
                     on_progress(file_idx, total_files, chunk_idx, total_chunks)
+
+            await device.upload_gif(
+                gif_data,
+                chunk_size=chunk_size,
+                on_progress=_file_progress,
+            )
 
             logger.info("Finished uploading %s", gif_path.name)
 
             if upload_delay is not None and file_idx < total_files - 1:
                 logger.info("Waiting %.1fs before next upload...", upload_delay)
                 await asyncio.sleep(upload_delay)
-
-        if use_cache:
-            add_to_cache(device_address)
-    finally:
-        await connection.disconnect()
