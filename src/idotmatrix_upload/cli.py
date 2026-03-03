@@ -1,9 +1,10 @@
 """CLI entry point for iDotMatrix GIF Upload.
 
-Provides three subcommands:
+Provides subcommands:
   - upload:     Preprocess and upload GIFs to a device
   - generate:   Create test GIF animations (spinning numbers)
   - preprocess: Validate and preprocess GIFs for upload
+  - chat:       Interactive LLM chat with live device animations
 """
 
 from __future__ import annotations
@@ -193,3 +194,65 @@ def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: 
     except ValidationError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
+
+
+@main.command()
+@click.option("--device-addr", default=None, help="BLE address (skip scan).")
+@click.option("--device-name", default="IDM-", help="Device name prefix for scanning.")
+@click.option(
+    "--model",
+    default="claude-sonnet-4-20250514",
+    help="Anthropic model name.",
+)
+@click.option(
+    "--animations-dir",
+    default="grot_animations",
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory containing grot animation GIFs.",
+)
+@click.option(
+    "--api-key",
+    envvar="ANTHROPIC_API_KEY",
+    required=True,
+    help="Anthropic API key (or set ANTHROPIC_API_KEY env var).",
+)
+@click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
+@click.option("--no-cache", is_flag=True, help="Skip device address cache.")
+@click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
+def chat(
+    device_addr: str | None,
+    device_name: str,
+    model: str,
+    animations_dir: str,
+    api_key: str,
+    chunk_size: int,
+    no_cache: bool,
+    verbose: bool,
+) -> None:
+    """Start an interactive chat with Grot on your iDotMatrix device."""
+    _setup_logging(verbose)
+
+    from .ble import BLEConnectionError
+    from .chat import run_chat
+    from .service import UploadError
+
+    try:
+        asyncio.run(
+            run_chat(
+                api_key=api_key,
+                model=model,
+                animations_dir=Path(animations_dir),
+                device_address=device_addr,
+                device_name_prefix=device_name,
+                use_cache=not no_cache,
+                chunk_size=chunk_size,
+            )
+        )
+    except BLEConnectionError as exc:
+        click.echo(f"Device error: {exc}", err=True)
+        sys.exit(2)
+    except UploadError as exc:
+        click.echo(f"Upload error: {exc}", err=True)
+        sys.exit(2)
+    except KeyboardInterrupt:
+        click.echo("\nGoodbye!")

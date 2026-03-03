@@ -31,6 +31,9 @@ venv/
 pixel-art-editor/node_modules/
 pixel-art-editor/dist/
 
+# Environment / secrets
+.env
+
 # OS
 .DS_Store
 Thumbs.db
