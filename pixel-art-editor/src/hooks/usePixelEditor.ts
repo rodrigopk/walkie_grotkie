@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { PixelBuffer } from "../core/PixelBuffer";
+import { PixelBuffer, BYTES } from "../core/PixelBuffer";
 import type { RGBA } from "../core/PixelBuffer";
 import { History } from "../core/history";
 import {
@@ -362,6 +362,18 @@ export function usePixelEditor() {
     [assertCellInBounds, color, pushHistory, repaint, syncHistoryState],
   );
 
+  const setBufferForApi = useCallback((data: Uint8ClampedArray | number[]) => {
+    const arr = data instanceof Uint8ClampedArray
+      ? data
+      : new Uint8ClampedArray(data);
+    if (arr.length !== BYTES) {
+      throw new Error(`Buffer must be exactly ${BYTES} bytes, got ${arr.length}`);
+    }
+    bufferRef.current = new PixelBuffer(arr);
+    setDirty(true);
+    repaint();
+  }, [repaint]);
+
   const getPixelAt = useCallback(
     (x: number, y: number) => {
       assertCellInBounds(x, y);
@@ -470,6 +482,7 @@ export function usePixelEditor() {
       getState: getStateSnapshot,
       getBufferHash,
       getBuffer: getBufferSnapshot,
+      setBuffer: setBufferForApi,
       importPngFile: importPngFromApi,
       exportPngBlob: exportPngBlobForApi,
       exportPngBlobToPath: exportPngBlobToPathForApi,
@@ -482,6 +495,7 @@ export function usePixelEditor() {
     getStateSnapshot,
     getBufferHash,
     getBufferSnapshot,
+    setBufferForApi,
     importPngFromApi,
     exportPngBlobForApi,
     exportPngBlobToPathForApi,

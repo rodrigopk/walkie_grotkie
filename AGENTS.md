@@ -28,8 +28,12 @@ src/idotmatrix_upload/    # All production code lives here
   protocol.py             # Packet framing, chunking, headers
   gif.py                  # GIF validation and preprocessing
   upload.py               # Upload orchestration (ties ble + protocol)
+  generate.py             # GIF generation and frame assembly (assemble_gif_from_frames)
+  sprite.py               # Sprite loading and frame rendering for animations
 tests/                    # pytest test suite
-docs/plans/               # Design documents (not committed)
+docs/
+  grot-animation-guide.md # Grot drawing & animation reference
+  plans/                  # Design documents (not committed)
 ```
 
 ---
@@ -95,6 +99,17 @@ docs/plans/               # Design documents (not committed)
   try. Example: `"Device 'iDotMatrix' not found. Make sure the device is
   powered on and within BLE range, then retry."`.
 - Log the full traceback at DEBUG level; show a clean one-liner at INFO level.
+
+---
+
+## Animation & Drawing
+
+For grot character manipulation, sprite-based frame generation, and animated
+GIF assembly, see [`docs/grot-animation-guide.md`](docs/grot-animation-guide.md).
+
+Key modules: `sprite.py` (Sprite class, `GROT_PNG` constant) and `generate.py`
+(`assemble_gif_from_frames`). The guide covers the Python-first workflow as
+well as the browser-based alternative using the pixel editor.
 
 ---
 

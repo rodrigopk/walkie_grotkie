@@ -43,4 +43,13 @@ describe("PixelBuffer", () => {
     pb.setRGBA(0, 0, 100, 200, 50);
     expect(pb.getRGBA(0, 0)).toEqual([100, 200, 50, 255]);
   });
+
+  it("constructor from Uint8ClampedArray copies data correctly", () => {
+    const src = new Uint8ClampedArray(W * H * 4);
+    src[0] = 42; src[1] = 100; src[2] = 200; src[3] = 255;
+    const pb = new PixelBuffer(src);
+    expect(pb.getRGBA(0, 0)).toEqual([42, 100, 200, 255]);
+    src[0] = 0;
+    expect(pb.getRGBA(0, 0)[0]).toBe(42);
+  });
 });

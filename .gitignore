@@ -5,6 +5,8 @@ docs/plans/
 test_gifs/
 processed/
 test_grot_images/
+output/
+scripts/
 
 # Python
 __pycache__/

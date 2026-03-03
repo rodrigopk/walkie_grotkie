@@ -135,6 +135,32 @@ def generate(output_dir: str, count: int, size: int, verbose: bool) -> None:
         click.echo(f"  {p.name} ({p.stat().st_size} bytes)")
 
 
+@main.command("assemble-gif")
+@click.argument("frames_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("-o", "--output", required=True, type=click.Path(), help="Output GIF path.")
+@click.option("--fps", default=20, type=int, help="Frames per second.")
+@click.option("--loop", default=0, type=int, help="Loop count (0 = infinite).")
+@click.option("--size", default=None, help="Optional resize WxH (e.g. 64x64).")
+@click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
+def assemble_gif(
+    frames_dir: str, output: str, fps: int, loop: int,
+    size: str | None, verbose: bool,
+) -> None:
+    """Assemble a directory of PNG frames into an animated GIF."""
+    _setup_logging(verbose)
+    from .generate import assemble_gif_from_frames
+
+    frames = sorted(Path(frames_dir).glob("*.png"))
+    if not frames:
+        raise click.ClickException(f"No PNG files found in {frames_dir}")
+
+    target_size = _parse_size(size) if size else None
+    result = assemble_gif_from_frames(
+        frames, Path(output), fps=fps, loop=loop, size=target_size,
+    )
+    click.echo(f"Assembled {len(frames)} frames -> {result} ({result.stat().st_size} bytes)")
+
+
 @main.command()
 @click.argument("gif_paths", nargs=-1, required=True, type=click.Path(exists=True))
 @click.option(

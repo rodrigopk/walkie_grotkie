@@ -20,6 +20,7 @@ export interface PixelEditorApi {
   getState: () => PixelEditorBridgeState;
   getBufferHash: () => string;
   getBuffer: () => Uint8ClampedArray;
+  setBuffer: (data: Uint8ClampedArray | number[]) => void;
   importPngFile: (file: File) => Promise<void>;
   exportPngBlob: () => Promise<Blob>;
   exportPngBlobToPath: (filePath: string) => Promise<void>;

@@ -10,7 +10,9 @@ Use this document when you need to:
 - create a new image from scratch,
 - load the built-in `grot` base image and edit it,
 - import an existing PNG and modify it,
-- export the final result and verify it deterministically.
+- export the final result and verify it deterministically,
+- generate multi-frame animations and assemble them into animated GIFs
+  (see [`docs/grot-animation-guide.md`](../docs/grot-animation-guide.md)).
 
 ## Preconditions
 
@@ -82,6 +84,7 @@ interface PixelEditorApi {
   };
   getBufferHash(): string; // FNV-1a checksum string
   getBuffer(): Uint8ClampedArray; // 64 * 64 * 4 bytes
+  setBuffer(data: Uint8ClampedArray | number[]): void; // replace entire 64*64*4 buffer
   importPngFile(file: File): Promise<void>;
   exportPngBlob(): Promise<Blob>;
   exportPngBlobToPath(filePath: string): Promise<void>;
@@ -100,6 +103,11 @@ interface PixelEditorApi {
    - Especially for loading `grot`, which is a startup action.
 5. **Verify with hash/state**
    - Use `getBufferHash()` and `getState()` to confirm expected outcomes.
+6. **Use `setBuffer` for bulk updates**
+   - `setBuffer` replaces all 16,384 bytes at once — use it instead of per-pixel
+     loops when updating the entire canvas (e.g. animation frames).
+   - `setBuffer` intentionally skips undo history. Snapshot the base buffer
+     with `getBuffer()` before calling it if you need to restore later.
 
 ## Common Workflows
 
@@ -177,159 +185,16 @@ await page.evaluate(async () => {
 });
 ```
 
-## Grot Character Reference
+## Grot Character & Animation
 
-### Loading the default grot image
+For grot drawing, spatial transforms, and multi-frame animation generation see
+[`docs/grot-animation-guide.md`](../docs/grot-animation-guide.md).
 
-The only way to load grot is from the **startup screen** before entering the
-editor. Click the button with `data-testid="startup-load-grot"` (labelled
-"Load grot default image"). This is a one-time transition — once in editor
-mode there is no "load grot" action; use undo or restart if you need to reset.
+That guide covers:
 
-```ts
-await page.goto("/");
-await page.getByTestId("startup-load-grot").click();
-await page.waitForFunction(() => window.pixelEditorApi?.getState().phase === "editor");
-```
-
-When operating from a browser automation tool that only supports navigation
-(no `page.evaluate`), the startup transition can be triggered by clicking the
-button ref obtained from a snapshot, then entering the editor by waiting for
-the toolbar buttons to appear.
-
-### Identifying the grot character outline
-
-The grot image uses **alpha transparency** to separate character pixels from
-the background:
-
-- **Background pixels:** `alpha === 0` (fully transparent `[r, g, b, 0]`)
-- **Character pixels:** `alpha === 255` (fully opaque)
-
-There are no semi-transparent pixels; every pixel is either fully on or fully
-off. Use `getBuffer()` to read all 64 × 64 × 4 bytes in one call, then check
-the alpha channel (index `i+3`) to determine membership:
-
-```ts
-const buf = window.pixelEditorApi.getBuffer(); // Uint8ClampedArray, 16 384 bytes
-const SIZE = 64;
-
-// Collect all opaque (character) pixel coordinates
-const characterPixels: Array<[number, number]> = [];
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const alpha = buf[(y * SIZE + x) * 4 + 3];
-    if (alpha > 0) characterPixels.push([x, y]);
-  }
-}
-
-// Compute axis-aligned bounding box of the character
-const xs = characterPixels.map(([x]) => x);
-const ys = characterPixels.map(([, y]) => y);
-const bbox = {
-  minX: Math.min(...xs), maxX: Math.max(...xs),
-  minY: Math.min(...ys), maxY: Math.max(...ys),
-};
-// bbox gives the tight rectangle that contains the entire character
-```
-
-### Applying spatial transforms to grot
-
-When performing transforms (scale, shift, rotate) always:
-
-1. **Snapshot the source first** — read the full buffer before writing any
-   pixels, so reads are never contaminated by partial writes.
-2. **Fill background with opaque black** — transparent pixels that end up
-   outside the character area should be set to `[0, 0, 0, 255]` so the LED
-   display renders a black background instead of undefined colour.
-3. **Write all pixels in a second pass** — collect the full list of
-   `[x, y, color]` tuples, then apply them with `setPixel` in one loop.
-
-Example — scale the character to 80 % centred on a black canvas:
-
-```ts
-const buf = window.pixelEditorApi.getBuffer();
-const SIZE = 64;
-const SCALE = 0.8;
-const newSize = Math.round(SIZE * SCALE);          // 51
-const ox = Math.floor((SIZE - newSize) / 2);       // 6  (left/top offset)
-const oy = ox;                                       // same for y (centered)
-
-const pixels: Array<[number, number, [number, number, number, number]]> = [];
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const dx = x - ox, dy = y - oy;
-    let c: [number, number, number, number];
-    if (dx >= 0 && dx < newSize && dy >= 0 && dy < newSize) {
-      const srcX = Math.min(Math.floor(dx / SCALE), SIZE - 1);
-      const srcY = Math.min(Math.floor(dy / SCALE), SIZE - 1);
-      const i = (srcY * SIZE + srcX) * 4;
-      // Transparent source pixels become black background
-      c = buf[i + 3] === 0
-        ? [0, 0, 0, 255]
-        : [buf[i], buf[i + 1], buf[i + 2], 255];
-    } else {
-      c = [0, 0, 0, 255]; // outside scaled area → black
-    }
-    pixels.push([x, y, c]);
-  }
-}
-for (const [x, y, c] of pixels) window.pixelEditorApi.setPixel(x, y, c);
-```
-
-### Agent workflow: edit grot via `javascript:` URL navigation
-
-When the browser automation tool does **not** expose a JS evaluation primitive
-(e.g. cursor-ide-browser MCP), use `javascript:` URL navigation instead:
-
-```
-browser_navigate(url="javascript:(<your minified IIFE here>)")
-```
-
-The page stays at `http://localhost:5174/` and the script runs in page context.
-Use an immediately-invoked async arrow for async work:
-
-```
-javascript:(async()=>{ /* ... await api calls ... */ })();
-```
-
-To **read back** a value from the page after executing JS, inject a hidden
-`<textarea>` and read its value with `browser_get_input_value`:
-
-```javascript
-// Write side (inside javascript: URL):
-let ta = document.getElementById('_out');
-if (!ta) { ta = document.createElement('textarea'); ta.id = '_out';
-           ta.style.cssText = 'position:fixed;left:-9999px';
-           document.body.appendChild(ta); }
-ta.value = myValue;
-
-// Read side (browser tool call):
-browser_get_input_value(selector="#_out")
-```
-
-This technique is used to extract the exported PNG as a base64 string:
-
-```javascript
-// Inside javascript: URL
-(async () => {
-  const blob = await window.pixelEditorApi.exportPngBlob();
-  const ab   = await blob.arrayBuffer();
-  const b64  = btoa(String.fromCharCode(...new Uint8Array(ab)));
-  let ta = document.getElementById('_export_ta');
-  if (!ta) { ta = document.createElement('textarea'); ta.id = '_export_ta';
-             ta.style.cssText = 'position:fixed;left:-9999px';
-             document.body.appendChild(ta); }
-  ta.value = b64;
-})();
-```
-
-Then decode and save from the host shell:
-
-```python
-import base64, pathlib
-b64 = "<value from browser_get_input_value>"
-pathlib.Path("output.png").write_bytes(base64.b64decode(b64))
-```
+- Grot character basics (alpha transparency, bounding box)
+- Python-first animation with the `Sprite` class (recommended)
+- Browser-based drawing and frame generation (alternative)
 
 ## Export and Save
 
@@ -368,7 +233,8 @@ javascript:void(window.pixelEditorApi.exportPngBlobToPath('/absolute/path/to/out
 ```
 
 This is the recommended export method for agents — it eliminates the base64
-textarea workaround described in the `javascript:` URL section above.
+textarea workaround described in the `javascript:` URL section of the
+[animation guide](../docs/grot-animation-guide.md#agent-workflow-javascript-url-navigation).
 
 ## Validation Patterns
 

@@ -87,3 +87,39 @@ test("export/import roundtrip preserves buffer hash", async ({ page }) => {
   expect(importedHash).toBe(expectedHash);
 });
 
+test("setBuffer replaces entire canvas and exports correctly", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("startup-start-new").click();
+  await page.waitForFunction(() => Boolean(window.pixelEditorApi));
+
+  await page.evaluate(() => {
+    const data = new Uint8ClampedArray(64 * 64 * 4);
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = 255; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 255;
+    }
+    window.pixelEditorApi!.setBuffer(data);
+  });
+
+  const px = await page.evaluate(() => window.pixelEditorApi!.getPixel(32, 32));
+  expect(px).toEqual([255, 0, 0, 255]);
+
+  const state = await page.evaluate(() => window.pixelEditorApi!.getState());
+  expect(state.dirty).toBe(true);
+});
+
+test("setBuffer rejects wrong-size data", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("startup-start-new").click();
+  await page.waitForFunction(() => Boolean(window.pixelEditorApi));
+
+  const error = await page.evaluate(() => {
+    try {
+      window.pixelEditorApi!.setBuffer(new Uint8ClampedArray(100));
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    }
+  });
+  expect(error).toContain("16384");
+});
+

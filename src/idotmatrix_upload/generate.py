@@ -100,6 +100,66 @@ def generate_spinning_number_gif(
     return output_path
 
 
+def assemble_gif_from_frames(
+    frame_paths: list[Path],
+    output_path: Path,
+    fps: int = 20,
+    loop: int = 0,
+    size: tuple[int, int] | None = None,
+) -> Path:
+    """Assemble PNG frame files into an animated GIF.
+
+    Args:
+        frame_paths: Ordered list of PNG file paths (sorted by caller).
+        output_path: Where to save the output GIF.
+        fps: Frames per second (converted to per-frame duration).
+        loop: Number of loops (0 = infinite).
+        size: Optional (w, h) to resize frames. None keeps original size.
+
+    Returns:
+        The output path.
+
+    Raises:
+        ValueError: If no frames provided or frames have inconsistent sizes.
+    """
+    if not frame_paths:
+        raise ValueError("No frame files provided")
+
+    duration_ms = round(1000 / fps)
+    frames: list[Image.Image] = []
+
+    ref_size: tuple[int, int] | None = None
+    for p in frame_paths:
+        img = Image.open(p).convert("RGBA")
+        if size:
+            img = img.resize(size, Image.Resampling.NEAREST)
+        if ref_size is None:
+            ref_size = img.size
+        elif img.size != ref_size:
+            raise ValueError(
+                f"Frame {p.name} is {img.size[0]}x{img.size[1]}, "
+                f"expected {ref_size[0]}x{ref_size[1]}"
+            )
+        rgb = img.convert("RGB")
+        frames.append(rgb.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frames[0].save(
+        output_path,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration_ms,
+        loop=loop,
+        disposal=2,
+    )
+
+    logger.info(
+        "Assembled %s (%d bytes, %d frames, %d fps)",
+        output_path, output_path.stat().st_size, len(frames), fps,
+    )
+    return output_path
+
+
 def generate_test_set(
     output_dir: Path,
     count: int = 10,
