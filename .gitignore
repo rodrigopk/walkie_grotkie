@@ -4,6 +4,7 @@ docs/plans/
 # Generated files
 test_gifs/
 processed/
+test_grot_images/
 
 # Python
 __pycache__/
