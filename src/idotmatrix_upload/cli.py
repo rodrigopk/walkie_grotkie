@@ -15,6 +15,9 @@ import sys
 from pathlib import Path
 
 import click
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from . import __version__
 
@@ -259,6 +262,80 @@ def chat(
                 api_key=api_key,
                 model=model,
                 animations_dir=Path(animations_dir),
+                device_address=device_addr,
+                device_name_prefix=device_name,
+                use_cache=not no_cache,
+                chunk_size=chunk_size,
+            )
+        )
+    except BLEConnectionError as exc:
+        click.echo(f"Device error: {exc}", err=True)
+        sys.exit(2)
+    except UploadError as exc:
+        click.echo(f"Upload error: {exc}", err=True)
+        sys.exit(2)
+    except KeyboardInterrupt:
+        click.echo("\nGoodbye!")
+
+
+@main.command("voice-chat")
+@click.option("--device-addr", default=None, help="BLE address (skip scan).")
+@click.option("--device-name", default="IDM-", help="Device name prefix for scanning.")
+@click.option(
+    "--model",
+    default="gpt-4o",
+    help="OpenAI chat model name.",
+)
+@click.option(
+    "--voice",
+    default="nova",
+    help="OpenAI TTS voice (alloy, ash, coral, echo, fable, nova, onyx, sage, shimmer, verse).",
+)
+@click.option(
+    "--animations-dir",
+    default="grot_animations",
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory containing grot animation GIFs.",
+)
+@click.option(
+    "--api-key",
+    envvar="OPENAI_API_KEY",
+    required=True,
+    help="OpenAI API key (or set OPENAI_API_KEY env var).",
+)
+@click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
+@click.option("--no-cache", is_flag=True, help="Skip device address cache.")
+@click.option(
+    "-d", "--debug",
+    is_flag=True,
+    help="Write debug logs to grot-voice-chat.log (keeps terminal clean).",
+)
+def voice_chat(
+    device_addr: str | None,
+    device_name: str,
+    model: str,
+    voice: str,
+    animations_dir: str,
+    api_key: str,
+    chunk_size: int,
+    no_cache: bool,
+    debug: bool,
+) -> None:
+    """Start a voice chat with Grot — hold SPACE to talk, release to send."""
+    if debug:
+        _setup_debug_file_logging(Path("grot-voice-chat.log"))
+
+    from .ble import BLEConnectionError
+    from .service import UploadError
+    from .voice_chat import run_voice_chat
+
+    try:
+        asyncio.run(
+            run_voice_chat(
+                api_key=api_key,
+                model=model,
+                animations_dir=Path(animations_dir),
+                tts_voice=voice,
                 device_address=device_addr,
                 device_name_prefix=device_name,
                 use_cache=not no_cache,

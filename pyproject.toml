@@ -7,11 +7,19 @@ dependencies = [
     "bleak>=0.21",
     "Pillow>=10.0",
     "click>=8.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
 chat = [
     "anthropic>=0.39",
+    "rich>=13.0",
+]
+voice = [
+    "openai>=1.0",
+    "sounddevice>=0.5",
+    "numpy>=1.24",
+    "pynput>=1.7",
     "rich>=13.0",
 ]
 dev = [
