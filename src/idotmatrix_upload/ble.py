@@ -149,8 +149,11 @@ async def connect(
             await client._backend._acquire_mtu()  # type: ignore[attr-defined]
         mtu = client.mtu_size
         logger.info("Negotiated MTU: %d", mtu)
-    except Exception:
-        logger.debug("MTU negotiation failed, using default %d", DEFAULT_MTU)
+    except (AttributeError, BleakError, OSError) as exc:
+        logger.debug("MTU negotiation failed, using default %d: %s", DEFAULT_MTU, exc)
+    except Exception as exc:
+        # Catch-all for unexpected bleak backend behaviour — MTU is non-critical.
+        logger.debug("Unexpected MTU negotiation error, using default %d: %s", DEFAULT_MTU, exc)
 
     if on_notification is not None:
         try:

@@ -79,18 +79,24 @@ class OpenAIChatSession:
                 yield delta
 
 
-async def transcribe(audio_bytes: bytes, api_key: str) -> str:
+async def transcribe(
+    audio_bytes: bytes,
+    api_key: str,
+    client: openai.AsyncOpenAI | None = None,
+) -> str:
     """Convert WAV audio bytes to text using OpenAI's Whisper model.
 
     Args:
         audio_bytes: WAV-formatted audio captured from the microphone.
-        api_key: OpenAI API key.
+        api_key: OpenAI API key (used only when *client* is not supplied).
+        client: Optional pre-built ``AsyncOpenAI`` instance.  Pass a shared
+                client to avoid repeated construction during long sessions.
 
     Returns:
         Transcribed text, stripped of leading/trailing whitespace.
         Returns an empty string if the recording was silent or too short.
     """
-    client = openai.AsyncOpenAI(api_key=api_key)
+    _client = client or openai.AsyncOpenAI(api_key=api_key)
 
     # The API expects a file-like object with a name hint for the format.
     import io
@@ -98,7 +104,7 @@ async def transcribe(audio_bytes: bytes, api_key: str) -> str:
     audio_file.name = "recording.wav"
 
     try:
-        result = await client.audio.transcriptions.create(
+        result = await _client.audio.transcriptions.create(
             model="gpt-4o-transcribe",
             file=audio_file,
             response_format="text",
@@ -117,22 +123,25 @@ async def synthesize(
     api_key: str,
     voice: str = "nova",
     voice_instructions: str = GROT_VOICE_INSTRUCTIONS,
+    client: openai.AsyncOpenAI | None = None,
 ) -> bytes:
     """Convert text to spoken audio using OpenAI's TTS model.
 
     Args:
         text: The text to speak (mood tags should be stripped before calling).
-        api_key: OpenAI API key.
+        api_key: OpenAI API key (used only when *client* is not supplied).
         voice: One of the OpenAI TTS voice names (alloy, ash, coral, echo,
                fable, nova, onyx, sage, shimmer, verse).
         voice_instructions: Personality/style prompt for gpt-4o-mini-tts.
+        client: Optional pre-built ``AsyncOpenAI`` instance.  Pass a shared
+                client to avoid repeated construction during long sessions.
 
     Returns:
         WAV audio bytes ready to be played back via voice.play_audio().
     """
-    client = openai.AsyncOpenAI(api_key=api_key)
+    _client = client or openai.AsyncOpenAI(api_key=api_key)
 
-    response = await client.audio.speech.create(
+    response = await _client.audio.speech.create(
         model="gpt-4o-mini-tts",
         voice=voice,  # type: ignore[arg-type]
         input=text,

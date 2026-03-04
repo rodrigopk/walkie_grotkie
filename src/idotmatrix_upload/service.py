@@ -151,9 +151,14 @@ class DeviceService:
     ) -> None:
         """Send a sequence of protocol packets with ACK flow control.
 
+        Stops immediately when the device sends a ``"complete"`` ACK —
+        remaining packets are not sent, matching device protocol expectations.
+
         Args:
             packets: Ordered list of protocol packets to send.
             on_progress: Optional callback ``(chunk_idx, total_chunks)``.
+                         Called after each packet is acknowledged, including
+                         the packet that triggers early completion.
         """
         total = len(packets)
         for idx, packet in enumerate(packets):
@@ -162,6 +167,7 @@ class DeviceService:
                 on_progress(idx, total)
             if result == "complete":
                 logger.info("Device signaled upload complete")
+                break
 
     async def upload_gif(
         self,

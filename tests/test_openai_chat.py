@@ -263,3 +263,74 @@ class TestSynthesize:
 
         extra = captured_kwargs.get("extra_body", {})
         assert extra.get("instructions") == "Be cheerful"
+
+
+# ---------------------------------------------------------------------------
+# Client injection — transcribe() and synthesize()
+# ---------------------------------------------------------------------------
+
+
+class TestClientInjection:
+    """Verify that injected clients are used instead of creating new ones."""
+
+    @pytest.mark.asyncio
+    async def test_transcribe_uses_injected_client(self):
+        """When a client is supplied, no new AsyncOpenAI should be constructed."""
+        injected_client = MagicMock()
+        injected_client.audio.transcriptions.create = AsyncMock(return_value="hello")
+
+        with patch(
+            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI"
+        ) as mock_constructor:
+            result = await transcribe(b"wav", api_key="irrelevant", client=injected_client)
+
+        # The constructor must not have been called — the injected client is used.
+        mock_constructor.assert_not_called()
+        injected_client.audio.transcriptions.create.assert_awaited_once()
+        assert result == "hello"
+
+    @pytest.mark.asyncio
+    async def test_transcribe_creates_client_when_none_supplied(self):
+        """When no client is supplied, a fresh AsyncOpenAI is built from api_key."""
+        fresh_client = MagicMock()
+        fresh_client.audio.transcriptions.create = AsyncMock(return_value="hi")
+
+        with patch(
+            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
+        ) as mock_constructor:
+            await transcribe(b"wav", api_key="test-key")
+
+        mock_constructor.assert_called_once_with(api_key="test-key")
+
+    @pytest.mark.asyncio
+    async def test_synthesize_uses_injected_client(self):
+        """When a client is supplied, no new AsyncOpenAI should be constructed."""
+        fake_response = MagicMock()
+        fake_response.read.return_value = b"audio"
+
+        injected_client = MagicMock()
+        injected_client.audio.speech.create = AsyncMock(return_value=fake_response)
+
+        with patch(
+            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI"
+        ) as mock_constructor:
+            result = await synthesize("Hello", api_key="irrelevant", client=injected_client)
+
+        mock_constructor.assert_not_called()
+        injected_client.audio.speech.create.assert_awaited_once()
+        assert result == b"audio"
+
+    @pytest.mark.asyncio
+    async def test_synthesize_creates_client_when_none_supplied(self):
+        """When no client is supplied, a fresh AsyncOpenAI is built from api_key."""
+        fake_response = MagicMock()
+        fake_response.read.return_value = b"audio"
+        fresh_client = MagicMock()
+        fresh_client.audio.speech.create = AsyncMock(return_value=fake_response)
+
+        with patch(
+            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
+        ) as mock_constructor:
+            await synthesize("Hello", api_key="test-key")
+
+        mock_constructor.assert_called_once_with(api_key="test-key")

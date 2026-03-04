@@ -20,6 +20,16 @@ from rich.panel import Panel
 from rich.spinner import Spinner
 
 from .animations import AnimationController, AnimationRegistry, AnimationState
+from .chat_commands import (
+    ANIMATION_NAMES as _ANIMATION_NAMES,
+    EXIT_COMMANDS as _EXIT_COMMANDS,
+    IDLE_REVERT_DELAY as _IDLE_REVERT_DELAY,
+    SLASH_COMMANDS as _SLASH_COMMANDS,
+    handle_animation_command,
+    play_sleeping as _play_sleeping,
+    print_help as _print_help,
+    state_label as _state_label,
+)
 from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT, SYSTEM_PROMPT
 from .service import DeviceService
 
@@ -40,15 +50,6 @@ _MOOD_MAP: dict[str, AnimationState] = {
     "excited": AnimationState.EXCITED,
     "thinking": AnimationState.THINKING,
     "dancing": AnimationState.DANCING,
-}
-
-_ANIMATION_NAMES: dict[str, AnimationState] = {
-    "idle":     AnimationState.IDLE,
-    "thinking": AnimationState.THINKING,
-    "talking":  AnimationState.TALKING,
-    "excited":  AnimationState.EXCITED,
-    "dancing":  AnimationState.DANCING,
-    "sleeping": AnimationState.SLEEPING,
 }
 
 
@@ -111,66 +112,6 @@ class ChatSession:
                 yield text
 
 
-_SLASH_COMMANDS = {
-    "/exit":       "Exit the chat",
-    "/help":       "Show this help message",
-    "/animation":  f"Preview an animation ({', '.join(_ANIMATION_NAMES)})",
-}
-
-_EXIT_COMMANDS = frozenset({"/exit"})
-
-
-def _print_help(console: Console, extra: dict[str, str] | None = None) -> None:
-    from rich.table import Table
-
-    commands = {**_SLASH_COMMANDS, **(extra or {})}
-    table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_column(style="bold cyan")
-    table.add_column(style="dim")
-    for cmd, description in commands.items():
-        table.add_row(cmd, description)
-    console.print(Panel(table, title="Commands", border_style="dim"))
-
-
-async def handle_animation_command(
-    raw: str,
-    console: Console,
-    controller: AnimationController,
-) -> None:
-    """Handle the /animation <name> slash command.
-
-    Transitions to the requested animation, holds it briefly, then reverts to IDLE.
-    Prints usage if the name is missing or unrecognised.
-    """
-    parts = raw.split(maxsplit=1)
-    if len(parts) < 2 or parts[1] not in _ANIMATION_NAMES:
-        names = ", ".join(_ANIMATION_NAMES)
-        console.print(f"[yellow]Usage:[/yellow] /animation <name>  ({names})")
-        return
-    state = _ANIMATION_NAMES[parts[1]]
-    console.print(f"[dim]Playing animation: {state.name.lower()}[/dim]")
-    await controller.transition(state)
-    await controller.await_current()
-    await asyncio.sleep(_IDLE_REVERT_DELAY)
-    await controller.transition(AnimationState.IDLE)
-
-
-def _state_label(state: AnimationState | None) -> str:
-    if state is None:
-        return "none"
-    return state.name.lower().replace("_", " ")
-
-
-_IDLE_REVERT_DELAY: float = 2.0
-
-
-async def _play_sleeping(controller: AnimationController) -> None:
-    """Upload the sleeping animation and wait for it to finish before exit."""
-    try:
-        await controller.transition(AnimationState.SLEEPING)
-        await controller.await_current()
-    except Exception:
-        logger.debug("Sleeping animation skipped on exit", exc_info=True)
 
 
 async def run_chat(

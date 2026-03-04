@@ -29,16 +29,17 @@ from rich.spinner import Spinner
 
 from . import protocol
 from .animations import AnimationController, AnimationRegistry, AnimationState
-from .chat import (
-    _EXIT_COMMANDS,             # noqa: PLC2701
-    _IDLE_REVERT_DELAY,         # noqa: PLC2701
-    _play_sleeping,             # noqa: PLC2701
-    _print_help,                # noqa: PLC2701
-    _state_label,               # noqa: PLC2701
-    extract_mood,
+from .chat import extract_mood, strip_mood_tag
+from .chat_commands import (
+    EXIT_COMMANDS as _EXIT_COMMANDS,
+    IDLE_REVERT_DELAY as _IDLE_REVERT_DELAY,
     handle_animation_command,
-    strip_mood_tag,
+    play_sleeping as _play_sleeping,
+    print_help as _print_help,
+    state_label as _state_label,
 )
+import openai as _openai
+
 from .openai_chat import TTS_VOICES, OpenAIChatSession, synthesize, transcribe
 from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT
 from .service import DeviceService
@@ -118,16 +119,19 @@ async def run_voice_chat(
             on_state_change=_on_state_change if animation_debug else None,
         )
         session = OpenAIChatSession(api_key=api_key, model=model, temperature=temperature)
+        # One shared client for all STT and TTS calls in this session —
+        # avoids repeated object construction on every turn.
+        openai_client = _openai.AsyncOpenAI(api_key=api_key)
         recorder = PushToTalkRecorder()
         recorder.start_listener()
 
         try:
             await controller.transition(AnimationState.EXCITED)
-            await _send_greeting(console, session, controller, api_key, tts_voice)
+            await _send_greeting(console, session, controller, openai_client, tts_voice)
             await asyncio.sleep(_IDLE_REVERT_DELAY)
             await controller.transition(AnimationState.IDLE)
 
-            await _voice_loop(console, session, controller, recorder, api_key, tts_voice)
+            await _voice_loop(console, session, controller, recorder, openai_client, tts_voice)
         finally:
             recorder.stop_listener()
             await _play_sleeping(controller)
@@ -140,7 +144,7 @@ async def _send_greeting(
     console: Console,
     session: OpenAIChatSession,
     controller: AnimationController,
-    api_key: str,
+    openai_client: _openai.AsyncOpenAI,
     tts_voice: str,
 ) -> None:
     """Generate, display, and speak Grot's opening greeting."""
@@ -157,7 +161,7 @@ async def _send_greeting(
         clean_text = strip_mood_tag(full_response)
         if clean_text:
             live.update(Spinner("dots", text="Grot is preparing...", style="yellow"))
-            audio = await synthesize(clean_text, api_key, voice=tts_voice)
+            audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client)
         else:
             audio = None
 
@@ -180,7 +184,7 @@ async def _voice_loop(
     session: OpenAIChatSession,
     controller: AnimationController,
     recorder: PushToTalkRecorder,
-    api_key: str,
+    openai_client: _openai.AsyncOpenAI,
     tts_voice: str,
 ) -> None:
     """Main push-to-talk loop."""
@@ -250,7 +254,7 @@ async def _voice_loop(
             console=console,
             refresh_per_second=12,
         ):
-            text = await transcribe(wav_bytes, api_key)
+            text = await transcribe(wav_bytes, api_key="", client=openai_client)
 
         if not text:
             console.print("[yellow]Could not understand audio. Try again.[/yellow]")
@@ -279,7 +283,7 @@ async def _voice_loop(
             clean_text = strip_mood_tag(full_response)
             if clean_text:
                 live.update(Spinner("dots", text="Grot is preparing...", style="yellow"))
-                audio = await synthesize(clean_text, api_key, voice=tts_voice)
+                audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client)
             else:
                 audio = None
 

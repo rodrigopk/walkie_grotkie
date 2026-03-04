@@ -209,6 +209,8 @@ class AnimationController:
         except asyncio.CancelledError:
             logger.debug("Animation upload cancelled: %s", state.name)
         except Exception:
+            # Background animation tasks must never crash the chat loop, so we
+            # intentionally absorb all failures and log them for diagnostics.
             logger.exception("Animation upload failed: %s", state.name)
 
     async def _send_sequence(
@@ -225,6 +227,7 @@ class AnimationController:
         except asyncio.CancelledError:
             logger.debug("Animation sequence cancelled: %s", state.name)
         except Exception:
+            # Same rationale as _send: animation failures must not propagate.
             logger.exception("Animation sequence failed: %s", state.name)
 
     async def _cancel_current(self) -> None:

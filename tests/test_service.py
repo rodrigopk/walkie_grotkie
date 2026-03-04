@@ -401,6 +401,27 @@ class TestSendPackets:
 
     @pytest.mark.asyncio
     async def test_send_packets_stops_on_complete(self, _mock_cache):
+        """Device's COMPLETE ACK must stop further sends; the second packet is dropped."""
+        with patch(
+            "idotmatrix_upload.service.ble.connect",
+            side_effect=_auto_ack_connect([ACK_COMPLETE, ACK_OK]),
+        ) as mock_connect:
+            async with DeviceService(
+                device_address="AA:BB:CC:DD:EE:FF"
+            ) as svc:
+                conn = svc._connection
+                packets = [b"\x00" * 20, b"\x01" * 20]
+                await svc.send_packets(packets)
+
+            # Only the first packet should have been written; the second must
+            # never be sent because the device already signaled completion.
+            assert conn.write.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_send_packets_progress_includes_completing_packet(self, _mock_cache):
+        """Progress callback must still fire for the packet that triggers COMPLETE."""
+        progress: list[tuple[int, int]] = []
+
         with patch(
             "idotmatrix_upload.service.ble.connect",
             side_effect=_auto_ack_connect([ACK_COMPLETE, ACK_OK]),
@@ -409,7 +430,12 @@ class TestSendPackets:
                 device_address="AA:BB:CC:DD:EE:FF"
             ) as svc:
                 packets = [b"\x00" * 20, b"\x01" * 20]
-                await svc.send_packets(packets)
+                await svc.send_packets(
+                    packets, on_progress=lambda idx, total: progress.append((idx, total))
+                )
+
+        # Progress must be reported for the single packet that was actually sent.
+        assert progress == [(0, 2)]
 
 
 # ---------------------------------------------------------------------------

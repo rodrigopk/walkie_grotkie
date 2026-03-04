@@ -54,7 +54,8 @@ def disable_terminal_echo() -> list:
         old = termios.tcgetattr(fd)
         tty.setcbreak(fd)
         return old
-    except Exception:
+    except (ImportError, OSError, AttributeError):
+        # termios is unavailable (Windows) or stdin is not a real tty.
         return []
 
 
@@ -69,7 +70,7 @@ def restore_terminal(old_settings: list) -> None:
         import termios
         fd = sys.stdin.fileno()
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    except Exception:
+    except (ImportError, OSError, AttributeError):
         pass
 
 
@@ -78,7 +79,7 @@ def flush_stdin() -> None:
     try:
         import termios
         termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
-    except Exception:
+    except (ImportError, OSError, AttributeError):
         pass
 
 

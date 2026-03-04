@@ -39,3 +39,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+filterwarnings = [
+    # AsyncMock creates coroutines during test-to-test GC handoff; these are
+    # harmless artefacts of the mock framework, not real unawaited coroutines.
+    "ignore:coroutine '.*' was never awaited:RuntimeWarning",
+]
