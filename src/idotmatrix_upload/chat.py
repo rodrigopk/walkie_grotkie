@@ -26,6 +26,13 @@ from .service import DeviceService
 logger = logging.getLogger(__name__)
 
 _MOOD_PATTERN = re.compile(r"\[mood:(\w+)\]")
+_DANCE_PATTERN = re.compile(r"\bdanc(e|es|ed|ing)\b", re.IGNORECASE)
+
+
+def _is_dance_request(text: str) -> bool:
+    """Return True if the text contains a dance-related word."""
+    return _DANCE_PATTERN.search(text) is not None
+
 
 _MOOD_MAP: dict[str, AnimationState] = {
     "idle": AnimationState.IDLE,
@@ -41,6 +48,7 @@ _ANIMATION_NAMES: dict[str, AnimationState] = {
     "talking":  AnimationState.TALKING,
     "excited":  AnimationState.EXCITED,
     "dancing":  AnimationState.DANCING,
+    "sleeping": AnimationState.SLEEPING,
 }
 
 
@@ -157,6 +165,15 @@ def _state_label(state: AnimationState | None) -> str:
 _IDLE_REVERT_DELAY: float = 2.0
 
 
+async def _play_sleeping(controller: AnimationController) -> None:
+    """Upload the sleeping animation and wait for it to finish before exit."""
+    try:
+        await controller.transition(AnimationState.SLEEPING)
+        await controller.await_current()
+    except Exception:
+        logger.debug("Sleeping animation skipped on exit", exc_info=True)
+
+
 async def run_chat(
     api_key: str,
     model: str,
@@ -220,6 +237,7 @@ async def run_chat(
         try:
             await _chat_loop(console, session, controller)
         finally:
+            await _play_sleeping(controller)
             await controller.shutdown()
 
     console.print("\n[dim]Disconnected. Goodbye![/dim]")
@@ -317,6 +335,8 @@ async def _chat_loop(
         # Hold the TALKING animation for a moment, then settle into the mood
         await asyncio.sleep(_IDLE_REVERT_DELAY)
         mood = extract_mood(full_response)
+        if _is_dance_request(user_input):
+            mood = AnimationState.DANCING
         await controller.transition(mood)
 
         if mood != AnimationState.IDLE:

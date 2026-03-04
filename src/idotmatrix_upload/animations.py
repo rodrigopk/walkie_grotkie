@@ -33,6 +33,7 @@ class AnimationState(Enum):
     DANCING = auto()
     DANCING_ALT = auto()
     DANCING_FLIP = auto()
+    SLEEPING = auto()
 
 ANIMATION_MAP: dict[AnimationState, str] = {
     AnimationState.IDLE:         "grot-idle-3/grot-idle-3.gif",
@@ -44,6 +45,7 @@ ANIMATION_MAP: dict[AnimationState, str] = {
     AnimationState.DANCING:      "grot-spin/grot-spin.gif",
     AnimationState.DANCING_ALT:  "grot-dance/grot-dance.gif",
     AnimationState.DANCING_FLIP: "grot-flip/grot-flip.gif",
+    AnimationState.SLEEPING:     "grot-sleeping/grot-sleeping.gif",
 }
 
 
@@ -231,6 +233,14 @@ class AnimationController:
             except asyncio.CancelledError:
                 pass
             self._current_task = None
+
+    async def await_current(self) -> None:
+        """Wait for the current upload task to finish without cancelling it."""
+        if self._current_task is not None and not self._current_task.done():
+            try:
+                await self._current_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
     async def shutdown(self) -> None:
         """Cancel any in-flight upload.  Call before disconnecting."""

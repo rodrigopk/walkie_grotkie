@@ -32,6 +32,7 @@ from .animations import AnimationController, AnimationRegistry, AnimationState
 from .chat import (
     _EXIT_COMMANDS,             # noqa: PLC2701
     _IDLE_REVERT_DELAY,         # noqa: PLC2701
+    _play_sleeping,             # noqa: PLC2701
     _print_help,                # noqa: PLC2701
     _state_label,               # noqa: PLC2701
     extract_mood,
@@ -128,6 +129,7 @@ async def run_voice_chat(
             await _voice_loop(console, session, controller, recorder, api_key, tts_voice)
         finally:
             recorder.stop_listener()
+            await _play_sleeping(controller)
             await controller.shutdown()
 
     console.print("\n[dim]Disconnected. Goodbye![/dim]")
