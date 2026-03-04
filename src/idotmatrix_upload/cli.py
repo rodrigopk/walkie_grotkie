@@ -234,6 +234,12 @@ def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: 
 @click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
 @click.option("--no-cache", is_flag=True, help="Skip device address cache.")
 @click.option(
+    "--temperature",
+    default=0.7,
+    type=click.FloatRange(0.0, 2.0),
+    help="LLM sampling temperature (0.0=deterministic, 2.0=creative). Default: 0.7.",
+)
+@click.option(
     "-d", "--debug",
     is_flag=True,
     help="Write debug logs to grot-chat.log (keeps terminal clean).",
@@ -246,6 +252,7 @@ def chat(
     api_key: str,
     chunk_size: int,
     no_cache: bool,
+    temperature: float,
     debug: bool,
 ) -> None:
     """Start an interactive chat with Grot on your iDotMatrix device."""
@@ -266,6 +273,7 @@ def chat(
                 device_name_prefix=device_name,
                 use_cache=not no_cache,
                 chunk_size=chunk_size,
+                temperature=temperature,
             )
         )
     except BLEConnectionError as exc:
@@ -306,6 +314,12 @@ def chat(
 @click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
 @click.option("--no-cache", is_flag=True, help="Skip device address cache.")
 @click.option(
+    "--temperature",
+    default=0.7,
+    type=click.FloatRange(0.0, 2.0),
+    help="LLM sampling temperature (0.0=deterministic, 2.0=creative). Default: 0.7.",
+)
+@click.option(
     "-d", "--debug",
     is_flag=True,
     help="Write debug logs to grot-voice-chat.log (keeps terminal clean).",
@@ -319,6 +333,7 @@ def voice_chat(
     api_key: str,
     chunk_size: int,
     no_cache: bool,
+    temperature: float,
     debug: bool,
 ) -> None:
     """Start a voice chat with Grot — hold SPACE to talk, release to send."""
@@ -340,6 +355,7 @@ def voice_chat(
                 device_name_prefix=device_name,
                 use_cache=not no_cache,
                 chunk_size=chunk_size,
+                temperature=temperature,
             )
         )
     except BLEConnectionError as exc:

@@ -74,6 +74,7 @@ class TestOpenAIChatSessionStream:
         session._client = mock_client
         session._model = "gpt-4o"
         session._max_tokens = 512
+        session._temperature = 0.7
         session._messages = [{"role": "user", "content": "Hi"}]
 
         chunks = []
@@ -100,6 +101,7 @@ class TestOpenAIChatSessionStream:
         session._client = mock_client
         session._model = "gpt-4o"
         session._max_tokens = 512
+        session._temperature = 0.7
         session._messages = [{"role": "user", "content": "Hi"}]
 
         chunks = []
@@ -129,6 +131,7 @@ class TestOpenAIChatSessionStream:
         session._client = mock_client
         session._model = "gpt-4o"
         session._max_tokens = 512
+        session._temperature = 0.7
         session._messages = [{"role": "user", "content": "Test"}]
 
         async for _ in session.stream_response():

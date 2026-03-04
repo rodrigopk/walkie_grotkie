@@ -21,23 +21,10 @@ from rich.spinner import Spinner
 from rich.text import Text
 
 from .animations import AnimationController, AnimationRegistry, AnimationState
+from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT, SYSTEM_PROMPT
 from .service import DeviceService
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = (
-    "You are Grot, a friendly pixel character living inside an LED matrix display. "
-    "You are curious, playful, and concise. Keep responses to 1-3 sentences.\n\n"
-    "At the end of every response, on its own line, emit exactly one mood tag "
-    "from this list:\n"
-    "  [mood:idle] — calm, neutral, nothing special\n"
-    "  [mood:talking] — normal conversational response\n"
-    "  [mood:excited] — happy, enthusiastic, celebrating\n"
-    "  [mood:thinking] — pondering, uncertain, curious\n"
-    "  [mood:dancing] — very happy, party vibes\n\n"
-    "The mood tag MUST appear on the last line and will not be shown to the "
-    "user — it controls which animation plays on the LED matrix."
-)
 
 _MOOD_PATTERN = re.compile(r"\[mood:(\w+)\]")
 
@@ -74,10 +61,12 @@ class ChatSession:
         api_key: str,
         model: str = "claude-sonnet-4-20250514",
         max_tokens: int = 512,
+        temperature: float = DEFAULT_TEMPERATURE,
     ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model
         self._max_tokens = max_tokens
+        self._temperature = temperature
         self._messages: list[dict[str, str]] = []
 
     @property
@@ -99,6 +88,7 @@ class ChatSession:
         async with self._client.messages.stream(
             model=self._model,
             max_tokens=self._max_tokens,
+            temperature=self._temperature,
             system=SYSTEM_PROMPT,
             messages=self._messages,
         ) as stream:
@@ -135,8 +125,6 @@ def _state_label(state: AnimationState | None) -> str:
 
 _IDLE_REVERT_DELAY: float = 2.0
 
-_GREETING_PROMPT = "[system: greet the user briefly in character as Grot]"
-
 
 async def run_chat(
     api_key: str,
@@ -146,6 +134,7 @@ async def run_chat(
     device_name_prefix: str = "IDM-",
     use_cache: bool = True,
     chunk_size: int = 4096,
+    temperature: float = DEFAULT_TEMPERATURE,
 ) -> None:
     """Main chat loop: Rich UI + LLM streaming + iDotMatrix animations."""
     console = Console()
@@ -189,7 +178,7 @@ async def run_chat(
         controller = AnimationController(
             device, registry, on_state_change=_on_state_change
         )
-        session = ChatSession(api_key=api_key, model=model)
+        session = ChatSession(api_key=api_key, model=model, temperature=temperature)
 
         await controller.transition(AnimationState.EXCITED)
         await _send_greeting(console, session, controller)
@@ -210,7 +199,7 @@ async def _send_greeting(
     controller: AnimationController,
 ) -> None:
     """Stream a Claude-generated greeting and render it as Grot's opening message."""
-    session.add_user_message(_GREETING_PROMPT)
+    session.add_user_message(GREETING_PROMPT)
     full_response = ""
 
     with Live(

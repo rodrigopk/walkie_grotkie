@@ -31,13 +31,13 @@ from rich.spinner import Spinner
 from . import protocol
 from .animations import AnimationController, AnimationRegistry, AnimationState
 from .chat import (
-    _GREETING_PROMPT,           # noqa: PLC2701
     _IDLE_REVERT_DELAY,         # noqa: PLC2701
     _state_label,               # noqa: PLC2701
     extract_mood,
     strip_mood_tag,
 )
 from .openai_chat import OpenAIChatSession, synthesize, transcribe
+from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT
 from .service import DeviceService
 from .voice import PushToTalkRecorder, play_audio
 
@@ -53,6 +53,7 @@ async def run_voice_chat(
     device_name_prefix: str = "IDM-",
     use_cache: bool = True,
     chunk_size: int = protocol.DEFAULT_CHUNK_SIZE,
+    temperature: float = DEFAULT_TEMPERATURE,
 ) -> None:
     """Main entry point for voice chat.
 
@@ -97,7 +98,7 @@ async def run_voice_chat(
         console.print(f"[green]Connected to {address}[/green]\n")
 
         controller = AnimationController(device, registry)
-        session = OpenAIChatSession(api_key=api_key, model=model)
+        session = OpenAIChatSession(api_key=api_key, model=model, temperature=temperature)
         recorder = PushToTalkRecorder()
         recorder.start_listener()
 
@@ -123,7 +124,7 @@ async def _send_greeting(
     tts_voice: str,
 ) -> None:
     """Generate, display, and speak Grot's opening greeting."""
-    session.add_user_message(_GREETING_PROMPT)
+    session.add_user_message(GREETING_PROMPT)
     full_response = ""
 
     with Live(

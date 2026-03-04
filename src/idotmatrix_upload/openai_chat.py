@@ -17,18 +17,9 @@ from pathlib import Path
 
 import openai
 
-from .chat import SYSTEM_PROMPT
+from .prompts import DEFAULT_TEMPERATURE, GROT_VOICE_INSTRUCTIONS, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
-
-
-# Grot personality instructions for the TTS voice model.
-# gpt-4o-mini-tts accepts a free-text description of how to speak.
-_GROT_VOICE_INSTRUCTIONS = (
-    "You are Grot, a small cheerful pixel creature. "
-    "Speak with a bright, slightly robotic tone — quick-paced and enthusiastic, "
-    "like a tiny character who is delighted to be talking to someone."
-)
 
 
 class OpenAIChatSession:
@@ -43,10 +34,12 @@ class OpenAIChatSession:
         api_key: str,
         model: str = "gpt-4o",
         max_tokens: int = 512,
+        temperature: float = DEFAULT_TEMPERATURE,
     ) -> None:
         self._client = openai.AsyncOpenAI(api_key=api_key)
         self._model = model
         self._max_tokens = max_tokens
+        self._temperature = temperature
         self._messages: list[dict[str, str]] = []
 
     @property
@@ -68,6 +61,7 @@ class OpenAIChatSession:
         stream = await self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
+            temperature=self._temperature,
             stream=True,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -117,7 +111,7 @@ async def synthesize(
     text: str,
     api_key: str,
     voice: str = "nova",
-    voice_instructions: str = _GROT_VOICE_INSTRUCTIONS,
+    voice_instructions: str = GROT_VOICE_INSTRUCTIONS,
 ) -> bytes:
     """Convert text to spoken audio using OpenAI's TTS model.
 
