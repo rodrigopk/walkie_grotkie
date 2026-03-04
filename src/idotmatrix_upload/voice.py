@@ -20,6 +20,8 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import os
+import subprocess
 import sys
 import wave
 from typing import Callable
@@ -71,6 +73,60 @@ def restore_terminal(old_settings: list) -> None:
         pass
 
 
+def flush_stdin() -> None:
+    """Discard any unread characters buffered on stdin."""
+    try:
+        import termios
+        termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Focus detection (macOS)
+# ---------------------------------------------------------------------------
+
+def _build_ancestor_pids() -> set[int]:
+    """Return the set of PIDs from the current process up to PID 1.
+
+    Called once at listener startup so the cost of shelling out to ``ps``
+    is only paid once.
+    """
+    pids: set[int] = set()
+    current = os.getpid()
+    while current > 0:
+        pids.add(current)
+        try:
+            result = subprocess.run(
+                ["ps", "-o", "ppid=", "-p", str(current)],
+                capture_output=True, text=True, timeout=1,
+            )
+            ppid = int(result.stdout.strip())
+            if ppid <= 0 or ppid == current or ppid in pids:
+                break
+            current = ppid
+        except (subprocess.TimeoutExpired, ValueError, OSError):
+            break
+    return pids
+
+
+def _is_terminal_focused(ancestor_pids: set[int]) -> bool:
+    """Return True if the frontmost macOS app is an ancestor of this process.
+
+    Falls back to True on non-macOS platforms or when detection fails,
+    so input is never silently swallowed on unsupported systems.
+    """
+    if sys.platform != "darwin" or not ancestor_pids:
+        return True
+    try:
+        from AppKit import NSWorkspace  # type: ignore[import-untyped]
+
+        front = NSWorkspace.sharedWorkspace().frontmostApplication()
+        return front.processIdentifier() in ancestor_pids
+    except Exception:
+        return True
+
+
 # ---------------------------------------------------------------------------
 # PushToTalkRecorder
 # ---------------------------------------------------------------------------
@@ -109,16 +165,19 @@ class PushToTalkRecorder:
         self._space_held: bool = False
         self._listener: object | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._ancestor_pids: set[int] = set()
 
     def start_listener(self) -> None:
         """Start the pynput keyboard listener in a background thread."""
         from pynput import keyboard
 
         self._loop = asyncio.get_event_loop()
+        self._ancestor_pids = _build_ancestor_pids()
 
         def on_press(key: object) -> None:
+            if not _is_terminal_focused(self._ancestor_pids):
+                return
             if key == keyboard.Key.space:
-                # Guard against auto-repeat events sent while key is held down.
                 if not self._space_held:
                     self._space_held = True
                     if self._loop is not None:

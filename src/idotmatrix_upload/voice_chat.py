@@ -45,6 +45,7 @@ from .service import DeviceService
 from .voice import (
     PushToTalkRecorder,
     disable_terminal_echo,
+    flush_stdin,
     play_audio,
     restore_terminal,
 )
@@ -96,7 +97,7 @@ async def run_voice_chat(
     except FileNotFoundError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return
-    console.print(f"[green]Loaded {registry.loaded_count} animations[/green]")
+    console.print("[green]Animations loaded[/green]")
 
     # -- Connect to device --
     console.print("[dim]Connecting to iDotMatrix device...[/dim]")
@@ -195,9 +196,11 @@ async def _voice_loop(
             result = await _wait_for_input(console, controller, recorder)
         except KeyboardInterrupt:
             restore_terminal(old_term)
+            flush_stdin()
             break
 
         restore_terminal(old_term)
+        flush_stdin()
 
         # -- Command mode: '/' was pressed --
         if result is None:
@@ -300,6 +303,7 @@ async def _voice_loop(
         await controller.transition(mood)
 
         if mood != AnimationState.IDLE:
+            await controller.await_current()
             await asyncio.sleep(_IDLE_REVERT_DELAY)
             await controller.transition(AnimationState.IDLE)
 

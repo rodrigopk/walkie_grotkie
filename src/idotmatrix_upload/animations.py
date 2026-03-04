@@ -48,6 +48,8 @@ ANIMATION_MAP: dict[AnimationState, str] = {
     AnimationState.SLEEPING:     "grot-sleeping/grot-sleeping.gif",
 }
 
+_RANDOM_VARIANT_STATES = frozenset({AnimationState.TALKING, AnimationState.DANCING})
+
 
 class AnimationRegistry:
     """Preloads GIF files and pre-builds protocol packets at startup.
@@ -131,7 +133,7 @@ class AnimationController:
           - grot-dance only
           - grot-spin followed by grot-dance (with a timed gap)
         """
-        if new_state == self._current_state:
+        if new_state == self._current_state and new_state not in _RANDOM_VARIANT_STATES:
             return
 
         await self._cancel_current()

@@ -112,14 +112,12 @@ class ChatSession:
 
 
 _SLASH_COMMANDS = {
-    "/quit":       "Exit the chat",
     "/exit":       "Exit the chat",
-    "/bye":        "Exit the chat",
     "/help":       "Show this help message",
     "/animation":  f"Preview an animation ({', '.join(_ANIMATION_NAMES)})",
 }
 
-_EXIT_COMMANDS = frozenset({"/quit", "/exit", "/bye"})
+_EXIT_COMMANDS = frozenset({"/exit"})
 
 
 def _print_help(console: Console, extra: dict[str, str] | None = None) -> None:
@@ -152,6 +150,7 @@ async def handle_animation_command(
     state = _ANIMATION_NAMES[parts[1]]
     console.print(f"[dim]Playing animation: {state.name.lower()}[/dim]")
     await controller.transition(state)
+    await controller.await_current()
     await asyncio.sleep(_IDLE_REVERT_DELAY)
     await controller.transition(AnimationState.IDLE)
 
@@ -205,9 +204,7 @@ async def run_chat(
     except FileNotFoundError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return
-    console.print(
-        f"[green]Loaded {registry.loaded_count} animations[/green]"
-    )
+    console.print("[green]Animations loaded[/green]")
 
     # -- Connect to device --
     console.print("[dim]Connecting to iDotMatrix device...[/dim]")
@@ -340,6 +337,7 @@ async def _chat_loop(
         await controller.transition(mood)
 
         if mood != AnimationState.IDLE:
+            await controller.await_current()
             await asyncio.sleep(_IDLE_REVERT_DELAY)
             await controller.transition(AnimationState.IDLE)
 
