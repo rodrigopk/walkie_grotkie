@@ -8,6 +8,11 @@ Recording pipeline:
 
 Playback pipeline:
   WAV bytes -> sounddevice play() (thread via asyncio.to_thread)
+
+Terminal echo control:
+  disable_terminal_echo / restore_terminal use termios to suppress key echo while
+  the push-to-talk loop is waiting, preventing stray spaces and slash characters
+  from appearing in the terminal output.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import sys
 import wave
 from typing import Callable
 
@@ -29,6 +35,46 @@ CHANNELS: int = 1           # Mono
 DTYPE: str = "int16"        # 16-bit PCM, matches WAV standard
 
 
+# ---------------------------------------------------------------------------
+# Terminal echo helpers (macOS / Linux via termios)
+# ---------------------------------------------------------------------------
+
+def disable_terminal_echo() -> list:
+    """Disable terminal echo on stdin and return the old termios settings.
+
+    Call restore_terminal() with the returned value to re-enable echo.
+    Returns an empty list on platforms that do not support termios (e.g. Windows).
+    """
+    try:
+        import termios
+        import tty
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        tty.setcbreak(fd)
+        return old
+    except Exception:
+        return []
+
+
+def restore_terminal(old_settings: list) -> None:
+    """Restore terminal settings saved by disable_terminal_echo().
+
+    A no-op if old_settings is empty (non-termios platforms).
+    """
+    if not old_settings:
+        return
+    try:
+        import termios
+        fd = sys.stdin.fileno()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# PushToTalkRecorder
+# ---------------------------------------------------------------------------
+
 class PushToTalkRecorder:
     """Records microphone audio while the spacebar is held.
 
@@ -36,12 +82,21 @@ class PushToTalkRecorder:
     recording state is communicated back to the asyncio event loop via
     threading events that are polled asynchronously.
 
+    Also detects '/' keypresses so the voice loop can offer slash commands
+    without leaving echo control mode.
+
     Usage::
 
         recorder = PushToTalkRecorder()
         recorder.start_listener()
         try:
-            wav_bytes = await recorder.wait_and_record()
+            result = await recorder.wait_for_input()
+            if result is None:
+                # '/' was pressed — handle command
+                pass
+            else:
+                # spacebar was pressed-and-released — result is WAV bytes
+                process(result)
         finally:
             recorder.stop_listener()
     """
@@ -50,6 +105,8 @@ class PushToTalkRecorder:
         self._sample_rate = sample_rate
         self._press_event = asyncio.Event()
         self._release_event = asyncio.Event()
+        self._command_event = asyncio.Event()
+        self._space_held: bool = False
         self._listener: object | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 
@@ -61,11 +118,22 @@ class PushToTalkRecorder:
 
         def on_press(key: object) -> None:
             if key == keyboard.Key.space:
-                if self._loop is not None:
-                    self._loop.call_soon_threadsafe(self._press_event.set)
+                # Guard against auto-repeat events sent while key is held down.
+                if not self._space_held:
+                    self._space_held = True
+                    if self._loop is not None:
+                        self._loop.call_soon_threadsafe(self._press_event.set)
+            else:
+                try:
+                    char = key.char  # type: ignore[union-attr]
+                except AttributeError:
+                    char = None
+                if char == "/" and self._loop is not None:
+                    self._loop.call_soon_threadsafe(self._command_event.set)
 
         def on_release(key: object) -> None:
             if key == keyboard.Key.space:
+                self._space_held = False
                 if self._loop is not None:
                     self._loop.call_soon_threadsafe(self._release_event.set)
 
@@ -79,6 +147,68 @@ class PushToTalkRecorder:
             self._listener.stop()  # type: ignore[union-attr]
             self._listener = None
             logger.debug("Push-to-talk key listener stopped")
+
+    async def wait_for_input(
+        self,
+        on_listening: Callable[[], None] | None = None,
+        on_recording_stop: Callable[[], None] | None = None,
+    ) -> bytes | None:
+        """Wait for either a spacebar press (record) or a '/' keypress (command).
+
+        Returns WAV bytes if the user pressed and released the spacebar.
+        Returns None if the user pressed '/' to enter command mode.
+
+        Args:
+            on_listening: Called immediately when spacebar press is detected.
+            on_recording_stop: Called when spacebar is released.
+        """
+        self._press_event.clear()
+        self._release_event.clear()
+        self._command_event.clear()
+        self._space_held = False
+
+        space_task = asyncio.ensure_future(self._press_event.wait())
+        cmd_task = asyncio.ensure_future(self._command_event.wait())
+
+        done, pending = await asyncio.wait(
+            {space_task, cmd_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for t in pending:
+            t.cancel()
+
+        if cmd_task in done:
+            return None
+
+        # Spacebar won — record until release.
+        if on_listening is not None:
+            on_listening()
+
+        frames: list[np.ndarray] = []
+
+        def audio_callback(
+            indata: np.ndarray,
+            frame_count: int,
+            time_info: object,
+            status: sd.CallbackFlags,
+        ) -> None:
+            if status:
+                logger.debug("Audio callback status: %s", status)
+            frames.append(indata.copy())
+
+        with sd.InputStream(
+            samplerate=self._sample_rate,
+            channels=CHANNELS,
+            dtype=DTYPE,
+            callback=audio_callback,
+        ):
+            await self._release_event.wait()
+
+        if on_recording_stop is not None:
+            on_recording_stop()
+
+        logger.debug("Recorded %d audio frames", len(frames))
+        return _frames_to_wav(frames, self._sample_rate)
 
     async def wait_and_record(
         self,
@@ -96,6 +226,7 @@ class PushToTalkRecorder:
         """
         self._press_event.clear()
         self._release_event.clear()
+        self._space_held = False
 
         await self._press_event.wait()
         if on_listening is not None:

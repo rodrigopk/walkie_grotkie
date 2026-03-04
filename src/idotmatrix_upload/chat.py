@@ -18,7 +18,6 @@ from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.spinner import Spinner
-from rich.text import Text
 
 from .animations import AnimationController, AnimationRegistry, AnimationState
 from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT, SYSTEM_PROMPT
@@ -135,6 +134,7 @@ async def run_chat(
     use_cache: bool = True,
     chunk_size: int = 4096,
     temperature: float = DEFAULT_TEMPERATURE,
+    animation_debug: bool = False,
 ) -> None:
     """Main chat loop: Rich UI + LLM streaming + iDotMatrix animations."""
     console = Console()
@@ -170,13 +170,13 @@ async def run_chat(
         address = device.address or "unknown"
         console.print(f"[green]Connected to {address}[/green]\n")
 
-        animation_status = Text("idle", style="cyan")
-
         def _on_state_change(state: AnimationState) -> None:
-            animation_status.plain = _state_label(state)
+            if animation_debug:
+                console.print(f"  [dim]animation: {_state_label(state)}[/dim]")
 
         controller = AnimationController(
-            device, registry, on_state_change=_on_state_change
+            device, registry,
+            on_state_change=_on_state_change if animation_debug else None,
         )
         session = ChatSession(api_key=api_key, model=model, temperature=temperature)
 
@@ -186,7 +186,7 @@ async def run_chat(
         await controller.transition(AnimationState.IDLE)
 
         try:
-            await _chat_loop(console, session, controller, animation_status)
+            await _chat_loop(console, session, controller)
         finally:
             await controller.shutdown()
 
@@ -225,7 +225,6 @@ async def _chat_loop(
     console: Console,
     session: ChatSession,
     controller: AnimationController,
-    animation_status: Text,
 ) -> None:
     """Read-eval-print loop with Rich rendering."""
     while True:
@@ -285,7 +284,6 @@ async def _chat_loop(
         await asyncio.sleep(_IDLE_REVERT_DELAY)
         mood = extract_mood(full_response)
         await controller.transition(mood)
-        console.print(f"  [dim]animation: {_state_label(mood)}[/dim]")
 
         if mood != AnimationState.IDLE:
             await asyncio.sleep(_IDLE_REVERT_DELAY)

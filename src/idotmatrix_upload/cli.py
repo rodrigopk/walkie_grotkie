@@ -244,6 +244,11 @@ def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: 
     is_flag=True,
     help="Write debug logs to grot-chat.log (keeps terminal clean).",
 )
+@click.option(
+    "--animation-debug",
+    is_flag=True,
+    help="Print every animation state transition to the terminal.",
+)
 def chat(
     device_addr: str | None,
     device_name: str,
@@ -254,6 +259,7 @@ def chat(
     no_cache: bool,
     temperature: float,
     debug: bool,
+    animation_debug: bool,
 ) -> None:
     """Start an interactive chat with Grot on your iDotMatrix device."""
     if debug:
@@ -274,6 +280,7 @@ def chat(
                 use_cache=not no_cache,
                 chunk_size=chunk_size,
                 temperature=temperature,
+                animation_debug=animation_debug,
             )
         )
     except BLEConnectionError as exc:
@@ -324,6 +331,11 @@ def chat(
     is_flag=True,
     help="Write debug logs to grot-voice-chat.log (keeps terminal clean).",
 )
+@click.option(
+    "--animation-debug",
+    is_flag=True,
+    help="Print every animation state transition to the terminal.",
+)
 def voice_chat(
     device_addr: str | None,
     device_name: str,
@@ -335,6 +347,7 @@ def voice_chat(
     no_cache: bool,
     temperature: float,
     debug: bool,
+    animation_debug: bool,
 ) -> None:
     """Start a voice chat with Grot — hold SPACE to talk, release to send."""
     if debug:
@@ -356,6 +369,7 @@ def voice_chat(
                 use_cache=not no_cache,
                 chunk_size=chunk_size,
                 temperature=temperature,
+                animation_debug=animation_debug,
             )
         )
     except BLEConnectionError as exc:

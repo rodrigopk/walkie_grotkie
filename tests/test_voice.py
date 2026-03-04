@@ -190,6 +190,7 @@ def _make_recorder_with_fresh_events():
     recorder = PushToTalkRecorder()
     recorder._press_event = asyncio.Event()
     recorder._release_event = asyncio.Event()
+    recorder._command_event = asyncio.Event()
     return recorder
 
 
@@ -203,6 +204,20 @@ async def _trigger_events(recorder, delay: float = 0.01) -> None:
     recorder._press_event.set()
     await asyncio.sleep(delay)
     recorder._release_event.set()
+
+
+async def _trigger_space(recorder, delay: float = 0.01) -> None:
+    """Fire press then release for wait_for_input."""
+    await asyncio.sleep(delay)
+    recorder._press_event.set()
+    await asyncio.sleep(delay)
+    recorder._release_event.set()
+
+
+async def _trigger_command(recorder, delay: float = 0.01) -> None:
+    """Fire the command event for wait_for_input."""
+    await asyncio.sleep(delay)
+    recorder._command_event.set()
 
 
 class _NoOpInputStream:
@@ -280,3 +295,138 @@ class TestPushToTalkRecorder:
             )
 
         assert stopped == [True]
+
+
+# ---------------------------------------------------------------------------
+# PushToTalkRecorder — wait_for_input (space path + command path)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForInput:
+    @pytest.mark.asyncio
+    async def test_space_returns_wav_bytes(self):
+        """Spacebar press-and-release via wait_for_input returns WAV bytes."""
+        recorder = _make_recorder_with_fresh_events()
+        sample_frames = [np.zeros((512,), dtype=np.int16)]
+
+        def make_stream(**kwargs):
+            return _CallbackInputStream(sample_frames, **kwargs)
+
+        with patch("idotmatrix_upload.voice.sd.InputStream", make_stream):
+            result, _ = await asyncio.gather(
+                recorder.wait_for_input(),
+                _trigger_space(recorder),
+            )
+
+        assert result is not None
+        assert result[:4] == b"RIFF"
+
+    @pytest.mark.asyncio
+    async def test_command_event_returns_none(self):
+        """'/' keypress via wait_for_input returns None to signal command mode."""
+        recorder = _make_recorder_with_fresh_events()
+
+        result, _ = await asyncio.gather(
+            recorder.wait_for_input(),
+            _trigger_command(recorder),
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_on_listening_called_on_space(self):
+        """on_listening callback is invoked when spacebar is pressed."""
+        recorder = _make_recorder_with_fresh_events()
+        called = []
+
+        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+            await asyncio.gather(
+                recorder.wait_for_input(on_listening=lambda: called.append(True)),
+                _trigger_space(recorder),
+            )
+
+        assert called == [True]
+
+    @pytest.mark.asyncio
+    async def test_on_listening_not_called_on_command(self):
+        """on_listening callback must NOT be invoked when '/' is pressed."""
+        recorder = _make_recorder_with_fresh_events()
+        called = []
+
+        await asyncio.gather(
+            recorder.wait_for_input(on_listening=lambda: called.append(True)),
+            _trigger_command(recorder),
+        )
+
+        assert called == []
+
+    @pytest.mark.asyncio
+    async def test_on_recording_stop_called_after_release(self):
+        """on_recording_stop is called after spacebar is released."""
+        recorder = _make_recorder_with_fresh_events()
+        stopped = []
+
+        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+            await asyncio.gather(
+                recorder.wait_for_input(on_recording_stop=lambda: stopped.append(True)),
+                _trigger_space(recorder),
+            )
+
+        assert stopped == [True]
+
+    @pytest.mark.asyncio
+    async def test_command_wins_race_when_fired_before_space(self):
+        """When command event fires first, result is None even if space follows."""
+        recorder = _make_recorder_with_fresh_events()
+
+        async def fire_command_then_space():
+            await asyncio.sleep(0.01)
+            recorder._command_event.set()
+            await asyncio.sleep(0.05)
+            recorder._press_event.set()
+            await asyncio.sleep(0.01)
+            recorder._release_event.set()
+
+        result, _ = await asyncio.gather(
+            recorder.wait_for_input(),
+            fire_command_then_space(),
+        )
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Terminal echo helpers — disable_terminal_echo / restore_terminal
+# ---------------------------------------------------------------------------
+
+
+class TestTerminalEchoHelpers:
+    def test_disable_returns_list(self):
+        """disable_terminal_echo should return a list (old settings or empty)."""
+        from idotmatrix_upload.voice import disable_terminal_echo
+        result = disable_terminal_echo()
+        assert isinstance(result, list)
+
+    def test_restore_with_empty_list_is_noop(self):
+        """restore_terminal([]) must not raise even without termios support."""
+        from idotmatrix_upload.voice import restore_terminal
+        restore_terminal([])
+
+    def test_disable_and_restore_roundtrip(self):
+        """Calling disable then restore should not raise on any supported platform."""
+        from idotmatrix_upload.voice import disable_terminal_echo, restore_terminal
+        old = disable_terminal_echo()
+        restore_terminal(old)
+
+    def test_restore_with_mocked_termios(self):
+        """restore_terminal calls termios.tcsetattr with the saved settings."""
+        from unittest.mock import call
+        import sys
+
+        fake_old = [object()]
+        with (
+            patch("idotmatrix_upload.voice.restore_terminal") as mock_restore,
+        ):
+            from idotmatrix_upload.voice import restore_terminal
+            mock_restore(fake_old)
+            mock_restore.assert_called_once_with(fake_old)
