@@ -20,6 +20,7 @@ from .service import DeviceService
 logger = logging.getLogger(__name__)
 
 ANIMATION_DURATION_S: float = 1.8
+DANCING_SPIN_DURATION_S: float = 2.5  # grot-spin: 50 frames at 20 fps
 
 
 class AnimationState(Enum):
@@ -30,15 +31,19 @@ class AnimationState(Enum):
     TALKING_ALT = auto()
     EXCITED = auto()
     DANCING = auto()
+    DANCING_ALT = auto()
+    DANCING_FLIP = auto()
 
 ANIMATION_MAP: dict[AnimationState, str] = {
-    AnimationState.IDLE:        "grot-idle-3/grot-idle-3.gif",
-    AnimationState.IDLE_ALT:    "grot-idle-4/grot-idle-4.gif",
-    AnimationState.THINKING:    "grot-antenna/grot-antenna.gif",
-    AnimationState.TALKING:     "grot-talking/grot-talking.gif",
-    AnimationState.TALKING_ALT: "grot-talking-2/grot-talking-2.gif",
-    AnimationState.EXCITED:     "grot-jump-flip/grot-jump-flip.gif",
-    AnimationState.DANCING:     "grot-dance/grot-dance.gif",
+    AnimationState.IDLE:         "grot-idle-3/grot-idle-3.gif",
+    AnimationState.IDLE_ALT:     "grot-idle-4/grot-idle-4.gif",
+    AnimationState.THINKING:     "grot-antenna/grot-antenna.gif",
+    AnimationState.TALKING:      "grot-talking/grot-talking.gif",
+    AnimationState.TALKING_ALT:  "grot-talking-2/grot-talking-2.gif",
+    AnimationState.EXCITED:      "grot-jump-flip/grot-jump-flip.gif",
+    AnimationState.DANCING:      "grot-spin/grot-spin.gif",
+    AnimationState.DANCING_ALT:  "grot-dance/grot-dance.gif",
+    AnimationState.DANCING_FLIP: "grot-flip/grot-flip.gif",
 }
 
 
@@ -118,6 +123,11 @@ class AnimationController:
           - grot-talking only
           - grot-talking-2 only
           - grot-talking followed by grot-talking-2 (with a timed gap)
+
+        For DANCING, a random sequence is chosen each time from:
+          - grot-spin only
+          - grot-dance only
+          - grot-spin followed by grot-dance (with a timed gap)
         """
         if new_state == self._current_state:
             return
@@ -134,12 +144,43 @@ class AnimationController:
                 self._send_sequence(sequence, new_state),
                 name=f"animation-{new_state.name}",
             )
+        elif new_state == AnimationState.DANCING:
+            sequence = self._pick_dancing_sequence()
+            self._current_task = asyncio.create_task(
+                self._send_sequence(sequence, new_state),
+                name=f"animation-{new_state.name}",
+            )
         else:
             packets = self._registry.get_packets(new_state)
             self._current_task = asyncio.create_task(
                 self._send(packets, new_state),
                 name=f"animation-{new_state.name}",
             )
+
+    def _pick_dancing_sequence(self) -> list[tuple[list[bytes], float]]:
+        """Randomly pick a dancing animation sequence.
+
+        Returns a list of (packets, pre_delay) pairs where pre_delay is the
+        number of seconds to wait before sending those packets.
+
+        Choices:
+          0 — grot-spin only
+          1 — grot-dance only
+          2 — grot-flip only
+          3 — grot-spin followed by grot-flip
+        """
+        spin = self._registry.get_packets(AnimationState.DANCING)
+        dance = self._registry.get_packets(AnimationState.DANCING_ALT)
+        flip = self._registry.get_packets(AnimationState.DANCING_FLIP)
+        choice = random.randint(0, 3)
+        if choice == 0:
+            return [(spin, 0.0)]
+        elif choice == 1:
+            return [(dance, 0.0)]
+        elif choice == 2:
+            return [(flip, 0.0)]
+        else:
+            return [(spin, 0.0), (flip, DANCING_SPIN_DURATION_S)]
 
     def _pick_talking_sequence(self) -> list[tuple[list[bytes], float]]:
         """Randomly pick a talking animation sequence.

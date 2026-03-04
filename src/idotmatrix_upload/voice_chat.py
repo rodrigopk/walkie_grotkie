@@ -35,9 +35,10 @@ from .chat import (
     _print_help,                # noqa: PLC2701
     _state_label,               # noqa: PLC2701
     extract_mood,
+    handle_animation_command,
     strip_mood_tag,
 )
-from .openai_chat import OpenAIChatSession, synthesize, transcribe
+from .openai_chat import TTS_VOICES, OpenAIChatSession, synthesize, transcribe
 from .prompts import DEFAULT_TEMPERATURE, GREETING_PROMPT
 from .service import DeviceService
 from .voice import (
@@ -199,13 +200,32 @@ async def _voice_loop(
         # -- Command mode: '/' was pressed --
         if result is None:
             user_input = await asyncio.to_thread(
-                console.input, "[bold green]/[/bold green]"
+                console.input, "[bold green]command> [/bold green]"
             )
-            cmd = ("/" + user_input.strip()).lower()
+            raw = user_input.strip().lower()
+            cmd = raw if raw.startswith("/") else f"/{raw}"
             if cmd in _EXIT_COMMANDS or cmd == "/":
                 break
             if cmd == "/help":
-                _print_help(console)
+                _print_help(
+                    console,
+                    extra={
+                        "/animation": "Preview an animation (idle, thinking, talking, excited, dancing)",
+                        "/voice":     f"Switch TTS voice ({', '.join(sorted(TTS_VOICES))})",
+                    },
+                )
+            elif cmd.startswith("/animation"):
+                await handle_animation_command(cmd, console, controller)
+            elif cmd.startswith("/voice"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) < 2 or parts[1] not in TTS_VOICES:
+                    console.print(
+                        f"[yellow]Usage:[/yellow] /voice <name>  "
+                        f"({', '.join(sorted(TTS_VOICES))})"
+                    )
+                else:
+                    tts_voice = parts[1]
+                    console.print(f"[green]Voice set to:[/green] {tts_voice}")
             else:
                 console.print(
                     f"[yellow]Unknown command:[/yellow] {cmd}  "
@@ -273,8 +293,7 @@ async def _voice_loop(
         if audio:
             await play_audio(audio)
 
-        # -- Settle into mood animation --
-        await asyncio.sleep(_IDLE_REVERT_DELAY)
+        # -- Settle into mood animation immediately after audio ends --
         mood = extract_mood(full_response)
         await controller.transition(mood)
 

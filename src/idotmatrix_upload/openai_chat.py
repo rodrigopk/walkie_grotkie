@@ -21,6 +21,11 @@ from .prompts import DEFAULT_TEMPERATURE, GROT_VOICE_INSTRUCTIONS, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
+TTS_VOICES: frozenset[str] = frozenset({
+    "alloy", "ash", "coral", "echo", "fable",
+    "nova", "onyx", "sage", "shimmer", "verse",
+})
+
 
 class OpenAIChatSession:
     """Streaming GPT-4o chat session that maintains conversation history.

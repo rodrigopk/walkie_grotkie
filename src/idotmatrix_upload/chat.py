@@ -35,6 +35,14 @@ _MOOD_MAP: dict[str, AnimationState] = {
     "dancing": AnimationState.DANCING,
 }
 
+_ANIMATION_NAMES: dict[str, AnimationState] = {
+    "idle":     AnimationState.IDLE,
+    "thinking": AnimationState.THINKING,
+    "talking":  AnimationState.TALKING,
+    "excited":  AnimationState.EXCITED,
+    "dancing":  AnimationState.DANCING,
+}
+
 
 def extract_mood(response: str) -> AnimationState:
     """Parse a [mood:...] tag from the response text.
@@ -96,24 +104,48 @@ class ChatSession:
 
 
 _SLASH_COMMANDS = {
-    "/quit": "Exit the chat",
-    "/exit": "Exit the chat",
-    "/bye":  "Exit the chat",
-    "/help": "Show this help message",
+    "/quit":       "Exit the chat",
+    "/exit":       "Exit the chat",
+    "/bye":        "Exit the chat",
+    "/help":       "Show this help message",
+    "/animation":  f"Preview an animation ({', '.join(_ANIMATION_NAMES)})",
 }
 
 _EXIT_COMMANDS = frozenset({"/quit", "/exit", "/bye"})
 
 
-def _print_help(console: Console) -> None:
+def _print_help(console: Console, extra: dict[str, str] | None = None) -> None:
     from rich.table import Table
 
+    commands = {**_SLASH_COMMANDS, **(extra or {})}
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="bold cyan")
     table.add_column(style="dim")
-    for cmd, description in _SLASH_COMMANDS.items():
+    for cmd, description in commands.items():
         table.add_row(cmd, description)
     console.print(Panel(table, title="Commands", border_style="dim"))
+
+
+async def handle_animation_command(
+    raw: str,
+    console: Console,
+    controller: AnimationController,
+) -> None:
+    """Handle the /animation <name> slash command.
+
+    Transitions to the requested animation, holds it briefly, then reverts to IDLE.
+    Prints usage if the name is missing or unrecognised.
+    """
+    parts = raw.split(maxsplit=1)
+    if len(parts) < 2 or parts[1] not in _ANIMATION_NAMES:
+        names = ", ".join(_ANIMATION_NAMES)
+        console.print(f"[yellow]Usage:[/yellow] /animation <name>  ({names})")
+        return
+    state = _ANIMATION_NAMES[parts[1]]
+    console.print(f"[dim]Playing animation: {state.name.lower()}[/dim]")
+    await controller.transition(state)
+    await asyncio.sleep(_IDLE_REVERT_DELAY)
+    await controller.transition(AnimationState.IDLE)
 
 
 def _state_label(state: AnimationState | None) -> str:
@@ -245,6 +277,8 @@ async def _chat_loop(
                 break
             if cmd == "/help":
                 _print_help(console)
+            elif cmd.startswith("/animation"):
+                await handle_animation_command(cmd, console, controller)
             else:
                 console.print(
                     f"[yellow]Unknown command:[/yellow] {user_input}  "
