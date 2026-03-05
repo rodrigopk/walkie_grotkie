@@ -1,22 +1,46 @@
 # iDotMatrix Upload
 
-CLI tool for uploading GIF animations to iDotMatrix LED matrix devices over
-Bluetooth Low Energy (BLE).
+CLI tool for uploading GIF animations to
+[iDotMatrix](https://www.idotmatrix.com/) LED matrix devices over Bluetooth Low
+Energy (BLE) — plus interactive text and voice chat with **Grot**, an animated
+character that lives on the display and reacts to your conversation in real
+time.
+
+## Prerequisites
+
+- **Python 3.11+**
+- An **iDotMatrix** LED matrix device (32×32 or 64×64) within BLE range
+- **macOS, Linux, or Windows** (any platform supported by
+  [bleak](https://github.com/hbldh/bleak))
+
+For voice chat you also need a working microphone and speakers/headphones.
 
 ## Installation
 
+Clone the repo and install in editable mode:
+
 ```bash
-# Core tool (upload, generate, preprocess)
+git clone https://github.com/<your-user>/idotmatrix-upload.git
+cd idotmatrix-upload
+```
+
+Pick the extras you need:
+
+```bash
+# Core only (upload, generate, preprocess, assemble-gif)
 pip install -e .
 
-# With chat feature (adds Anthropic SDK + Rich)
+# Text chat with Grot (adds Anthropic SDK + Rich)
 pip install -e ".[chat]"
 
-# With dev dependencies (pytest)
+# Voice chat with Grot (adds OpenAI SDK + sounddevice + pynput)
+pip install -e ".[voice]"
+
+# Development (pytest + pytest-asyncio)
 pip install -e ".[dev]"
 
 # Everything
-pip install -e ".[chat,dev]"
+pip install -e ".[chat,voice,dev]"
 ```
 
 ## Quick start
@@ -27,10 +51,23 @@ pip install -e ".[chat,dev]"
 idotmatrix-upload upload path/to/animation.gif
 ```
 
-### Interactive chat with Grot
+Upload multiple GIFs in one go:
 
-Chat with an AI character that controls live animations on your iDotMatrix
-device. Grot reacts to the conversation: thinking, talking, dancing, and more.
+```bash
+idotmatrix-upload upload anim1.gif anim2.gif anim3.gif --delay 2.0
+```
+
+Skip the BLE scan by passing a known device address:
+
+```bash
+idotmatrix-upload upload animation.gif --device-addr "AA:BB:CC:DD:EE:FF"
+```
+
+### Text chat with Grot
+
+Chat with an AI character powered by Claude that controls live animations on
+your iDotMatrix device. Grot reacts to the conversation — thinking, talking,
+dancing, sleeping, and more.
 
 #### 1. Get an Anthropic API key
 
@@ -38,27 +75,18 @@ device. Grot reacts to the conversation: thinking, talking, dancing, and more.
 2. Create a new API key
 3. Copy the key (starts with `sk-ant-...`)
 
-#### 2. Configure the key
+#### 2. Set the key
 
-Copy the example environment file and add your key:
+Copy the example env file and fill in your key:
 
 ```bash
 cp .env.example .env
-```
-
-Edit `.env` and replace the placeholder with your actual key:
-
-```
-ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
-```
-
-Then load it into your shell:
-
-```bash
+# Edit .env and replace the placeholder:
+#   ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 source .env && export ANTHROPIC_API_KEY
 ```
 
-Or pass it directly:
+Or export it directly in your shell:
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-your-actual-key-here"
@@ -70,32 +98,151 @@ export ANTHROPIC_API_KEY="sk-ant-your-actual-key-here"
 idotmatrix-upload chat
 ```
 
-Options:
+Example session:
 
-| Flag | Description |
-|---|---|
-| `--device-addr ADDR` | BLE address (skip scan) |
-| `--model NAME` | Anthropic model (default: claude-sonnet-4-20250514) |
-| `--animations-dir DIR` | Path to animation GIFs (default: `grot_animations`) |
-| `--no-cache` | Skip device address cache |
-| `-v, --verbose` | Debug logging |
+```
+🤖 Grot is ready! Type your message (or /help for commands).
+
+You: Hey Grot, tell me a joke!
+Grot: *excited* Why do LED matrices never get lonely?
+      Because they always have a bright personality! 💡
+
+You: Nice one! Can you dance?
+Grot: *dancing* You bet I can! Watch the lights go!
+
+You: /help
+Available commands:
+  /help        Show this help
+  /animation   Show current animation state
+  /exit        Quit the chat
+
+You: /exit
+```
+
+#### Chat options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--device-addr ADDR` | *(scan)* | BLE address (skip scan) |
+| `--model NAME` | `claude-sonnet-4-20250514` | Anthropic model |
+| `--animations-dir DIR` | `grot_animations` | Path to animation GIFs |
+| `--temperature N` | `0.7` | Sampling temperature (0–2) |
+| `--no-cache` | | Skip device address cache |
+| `-d, --debug` | | Write debug logs to `grot-chat.log` |
+
+### Voice chat with Grot
+
+Talk to Grot with your voice. Hold **Space** to speak, release to send. Your
+speech is transcribed with Whisper, answered by GPT-4o, and spoken back via
+OpenAI TTS — all while Grot's animations sync to the conversation.
+
+#### 1. Get an OpenAI API key
+
+1. Go to <https://platform.openai.com/api-keys>
+2. Create a new API key
+3. Copy the key (starts with `sk-...`)
+
+#### 2. Set the key
+
+```bash
+export OPENAI_API_KEY="sk-your-openai-key-here"
+```
+
+#### 3. Start talking
+
+```bash
+idotmatrix-upload voice-chat
+```
+
+Example session:
+
+```
+🎙️  Voice chat ready! Hold SPACE to speak, release to send.
+
+[SPACE held]  Recording...
+[SPACE released]  Transcribing...
+You: "What's the weather like on your LED matrix?"
+Grot (speaking): "It's always sunny here — 64 by 64 pixels of pure warmth!"
+
+[SPACE held]  Recording...
+[SPACE released]  Transcribing...
+You: "Show me a dance!"
+Grot (speaking): "Watch this!" *dancing*
+```
+
+#### Voice chat options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--device-addr ADDR` | *(scan)* | BLE address (skip scan) |
+| `--model NAME` | `gpt-4o` | OpenAI chat model |
+| `--voice NAME` | `nova` | TTS voice (`alloy`, `ash`, `coral`, `echo`, `fable`, `nova`, `onyx`, `sage`, `shimmer`, `verse`) |
+| `--animations-dir DIR` | `grot_animations` | Path to animation GIFs |
+| `--temperature N` | `0.7` | Sampling temperature (0–2) |
+| `--no-cache` | | Skip device address cache |
+| `-d, --debug` | | Write debug logs to `grot-voice-chat.log` |
 
 ## Other commands
 
+### Generate test GIFs
+
+Create numbered spinning-digit GIFs for testing uploads:
+
 ```bash
-# Generate test GIFs
-idotmatrix-upload generate --count 5
+idotmatrix-upload generate --count 5 --output-dir ./test_gifs
+```
 
-# Preprocess GIFs for the device
-idotmatrix-upload preprocess path/to/gif.gif --size 64x64
+### Preprocess GIFs
 
-# Assemble PNG frames into a GIF
+Validate and resize GIFs for the device without uploading:
+
+```bash
+idotmatrix-upload preprocess animation.gif --size 64x64 --output-dir ./processed
+```
+
+### Assemble PNG frames into a GIF
+
+Combine a directory of PNG frames into an animated GIF:
+
+```bash
 idotmatrix-upload assemble-gif frames_dir/ -o output.gif --fps 20
+```
+
+Resize during assembly:
+
+```bash
+idotmatrix-upload assemble-gif frames_dir/ -o output.gif --fps 12 --size 64x64
+```
+
+## Pixel art editor
+
+The `pixel-art-editor/` directory contains a browser-based 64×64 pixel art
+editor (React + Vite + TypeScript) for creating and editing Grot sprites and
+animation frames. See
+[`docs/grot-animation-guide.md`](docs/grot-animation-guide.md) for the full
+animation workflow.
+
+```bash
+cd pixel-art-editor
+npm install
+npm run dev
+```
+
+## BLE tools
+
+Standalone scripts in `tools/` for exploring and debugging iDotMatrix devices:
+
+```bash
+# Explore GATT services and characteristics
+python tools/ble_explore.py [DEVICE_ADDR]
+
+# Probe upload and OTA characteristics
+python tools/ble_probe.py [DEVICE_ADDR]
 ```
 
 ## Development
 
 ```bash
-pip install -e ".[chat,dev]"
+pip install -e ".[chat,voice,dev]"
 pytest -v
 ```
