@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import WalkieTalkie from "./components/WalkieTalkie";
 import LEDDisplay, { type DisplayLine } from "./components/LEDDisplay";
 import PushToTalkButton, { type ButtonState } from "./components/PushToTalkButton";
+import SmallButtons from "./components/SmallButtons";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { playAudioFromBase64 } from "./utils/audio";
@@ -12,6 +14,10 @@ const WS_URL = "ws://localhost:8765";
 let _lineId = 0;
 function makeId() {
   return String(_lineId++);
+}
+
+async function handleQuit() {
+  await getCurrentWindow().close();
 }
 
 export default function App() {
@@ -160,6 +166,7 @@ export default function App() {
             onPressEnd={() => void 0}
           />
         </div>
+        <SmallButtons onQuit={() => void handleQuit()} />
       </WalkieTalkie>
     );
   }
@@ -187,6 +194,7 @@ export default function App() {
           onPressEnd={() => void handlePressEnd()}
         />
       </div>
+      <SmallButtons onQuit={() => void handleQuit()} />
     </WalkieTalkie>
   );
 }

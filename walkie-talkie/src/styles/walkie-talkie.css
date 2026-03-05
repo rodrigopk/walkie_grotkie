@@ -1,4 +1,4 @@
-/* Walkie-talkie base styles — full styling added in Phase 3 */
+/* Walkie-talkie retro pixel-art styling */
 
 *,
 *::before,
@@ -9,16 +9,22 @@
 }
 
 :root {
-  --housing-color: #2a2a2a;
-  --housing-highlight: #3a3a3a;
+  --housing-color: #1a1a1a;
+  --housing-highlight: #333;
+  --panel-color: #d4a017;
+  --panel-border: #b8860b;
+  --panel-inner-border: #a07010;
+  --accent-strip: #8b2500;
   --led-bg: #0a0f0a;
   --led-green: #39ff14;
   --led-cyan: #00ffff;
   --led-amber: #ffbf00;
   --led-red: #ff2020;
-  --button-red: #cc1f1f;
-  --button-red-press: #991515;
-  --button-grey: #555;
+  --button-grey: #666;
+  --button-grey-highlight: #888;
+  --button-grey-shadow: #444;
+  --small-button-color: #3a3a3a;
+  --small-button-border: #222;
   font-family: "Courier New", Courier, monospace;
 }
 
@@ -27,7 +33,8 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  background: #1a1a1a;
+  background: transparent;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,19 +51,19 @@ body,
 
 /* ── Walkie-talkie body ───────────────────────────────────────── */
 .device-body {
-  width: 360px;
-  min-height: 620px;
+  width: 340px;
+  height: 680px;
   background: var(--housing-color);
-  border-radius: 24px 24px 48px 48px;
+  border-radius: 16px 16px 40px 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 24px 32px;
+  padding: 0;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  gap: 16px;
+    0 8px 40px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   position: relative;
+  overflow: hidden;
 }
 
 /* ── Antenna ──────────────────────────────────────────────────── */
@@ -80,35 +87,71 @@ body,
 /* ── Speaker grille ───────────────────────────────────────────── */
 .device-speaker-grille {
   width: 100%;
-  height: 40px;
+  height: 44px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  margin-top: 16px;
+  padding: 8px 24px;
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.device-speaker-grille:active {
+  cursor: grabbing;
 }
 
 .grille-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #1a1a1a;
+  background: #111;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* ── Accent strip (dark red bar) ──────────────────────────────── */
+.device-accent-strip {
+  width: 100%;
+  height: 8px;
+  background: var(--accent-strip);
+  flex-shrink: 0;
+}
+
+/* ── Inner panel (yellow/gold) ────────────────────────────────── */
+.device-inner-panel {
+  flex: 1;
+  min-height: 0;
+  width: calc(100% - 24px);
+  margin: 10px 12px 14px;
+  background: var(--panel-color);
+  border: 3px solid var(--panel-border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  gap: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* ── LED Screen ───────────────────────────────────────────────── */
 .device-screen {
-  width: 100%;
+  flex: 1;
+  min-height: 0;
   background: var(--led-bg);
-  border-radius: 8px;
+  border-radius: 4px;
   border: 2px solid #111;
   box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.8),
+    inset 0 2px 10px rgba(0, 0, 0, 0.9),
     0 0 0 1px rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  min-height: 200px;
+  padding: 10px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── LED Display ──────────────────────────────────────────────── */
@@ -156,62 +199,56 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 8px;
+  flex-shrink: 0;
 }
 
-/* ── Push-to-Talk button ──────────────────────────────────────── */
+/* ── Push-to-Talk button (rectangular) ───────────────────────── */
 .ptt-button {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: none;
+  width: 100%;
+  height: 52px;
+  border-radius: 5px;
+  border: 2px solid #333;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   position: relative;
-  transition: transform 80ms ease, box-shadow 80ms ease;
+  transition: transform 60ms ease, box-shadow 60ms ease;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .ptt-idle {
-  background: radial-gradient(circle at 40% 35%, #e63333, var(--button-red) 60%);
+  background: linear-gradient(to bottom, #999 0%, #777 50%, #666 100%);
   box-shadow:
-    0 8px 0 #7a0000,
-    0 10px 20px rgba(0, 0, 0, 0.6),
-    inset 0 2px 4px rgba(255, 255, 255, 0.15);
+    0 4px 0 var(--button-grey-shadow),
+    0 6px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .ptt-pressed {
-  background: radial-gradient(
-    circle at 40% 35%,
-    #cc2222,
-    var(--button-red-press) 60%
-  );
+  background: linear-gradient(to bottom, #777 0%, #555 100%);
   box-shadow:
-    0 2px 0 #7a0000,
-    0 4px 8px rgba(0, 0, 0, 0.6);
-  transform: translateY(6px);
+    0 1px 0 var(--button-grey-shadow),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  transform: translateY(3px);
 }
 
 .ptt-disabled {
-  background: radial-gradient(circle at 40% 35%, #888, var(--button-grey) 60%);
+  background: linear-gradient(to bottom, #666 0%, #4a4a4a 100%);
   box-shadow:
-    0 8px 0 #333,
-    0 10px 20px rgba(0, 0, 0, 0.4);
+    0 4px 0 #2a2a2a,
+    0 6px 12px rgba(0, 0, 0, 0.3);
   cursor: not-allowed;
 }
 
 .ptt-recording {
-  background: radial-gradient(circle at 40% 35%, #e63333, var(--button-red) 60%);
+  background: linear-gradient(to bottom, #888 0%, #666 100%);
   box-shadow:
-    0 2px 0 #7a0000,
-    0 4px 8px rgba(0, 0, 0, 0.6),
-    0 0 24px rgba(255, 50, 50, 0.5);
-  transform: translateY(6px);
+    0 1px 0 var(--button-grey-shadow),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(180, 180, 180, 0.35);
+  transform: translateY(3px);
 }
 
 .ptt-label {
@@ -224,6 +261,57 @@ body,
   pointer-events: none;
 }
 
+/* ── Small function buttons ───────────────────────────────────── */
+.device-small-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.device-small-buttons-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.small-btn {
+  width: 32px;
+  height: 24px;
+  border-radius: 3px;
+  border: 2px solid var(--small-button-border);
+  background: linear-gradient(to bottom, #4a4a4a, var(--small-button-color));
+  box-shadow:
+    0 2px 0 #1a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: default;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.small-btn-quit {
+  background: linear-gradient(to bottom, #553333, #3a2020);
+  border-color: #111;
+  color: rgba(255, 100, 100, 0.85);
+  cursor: pointer;
+  box-shadow:
+    0 2px 0 #1a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+}
+
+.small-btn-quit:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 #1a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* ── Loading screen ───────────────────────────────────────────── */
 .loading-container {
   display: flex;
@@ -231,42 +319,41 @@ body,
   align-items: center;
   justify-content: center;
   height: 100%;
-  min-height: 200px;
-  gap: 16px;
+  gap: 14px;
 }
 
 .loading-animation {
-  width: 96px;
-  height: 96px;
+  width: 80px;
+  height: 80px;
   image-rendering: pixelated;
 }
 
 .loading-caption {
   color: var(--led-green);
   font-family: "Courier New", Courier, monospace;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.05em;
 }
 
-/* Pulsing ring animation for recording state */
+/* ── Pulsing glow animation for recording state ───────────────── */
 @keyframes ptt-pulse {
   0% {
     box-shadow:
-      0 2px 0 #7a0000,
-      0 4px 8px rgba(0, 0, 0, 0.6),
-      0 0 0 0 rgba(255, 50, 50, 0.7);
+      0 1px 0 var(--button-grey-shadow),
+      0 2px 4px rgba(0, 0, 0, 0.5),
+      0 0 0 0 rgba(200, 200, 200, 0.5);
   }
   70% {
     box-shadow:
-      0 2px 0 #7a0000,
-      0 4px 8px rgba(0, 0, 0, 0.6),
-      0 0 0 20px rgba(255, 50, 50, 0);
+      0 1px 0 var(--button-grey-shadow),
+      0 2px 4px rgba(0, 0, 0, 0.5),
+      0 0 0 16px rgba(200, 200, 200, 0);
   }
   100% {
     box-shadow:
-      0 2px 0 #7a0000,
-      0 4px 8px rgba(0, 0, 0, 0.6),
-      0 0 0 0 rgba(255, 50, 50, 0);
+      0 1px 0 var(--button-grey-shadow),
+      0 2px 4px rgba(0, 0, 0, 0.5),
+      0 0 0 0 rgba(200, 200, 200, 0);
   }
 }
 
