@@ -214,6 +214,30 @@ Resize during assembly:
 idotmatrix-upload assemble-gif frames_dir/ -o output.gif --fps 12 --size 64x64
 ```
 
+## Walkie-talkie UI
+
+The `walkie-talkie/` directory contains a **Tauri 2** desktop app that
+provides a retro walkie-talkie interface for the Grot voice-chat. Press and
+hold the big button to talk; an LED display shows transcriptions, responses,
+and status messages.
+
+Architecture: Tauri window (React webview) communicates with the Python
+voice-chat pipeline over a local WebSocket. The Python process runs as a
+Tauri sidecar, so no separate terminal is needed in production builds.
+
+```bash
+cd walkie-talkie
+npm install
+# In a separate terminal start the Python server:
+source .venv/bin/activate idotmatrix-upload serve --port 8765
+# Then launch the Tauri app:
+cargo tauri dev
+```
+
+See [`walkie-talkie/README.md`](walkie-talkie/README.md) for full setup
+instructions and [`walkie-talkie/INSTALL.md`](walkie-talkie/INSTALL.md) for
+OS-specific requirements.
+
 ## Pixel art editor
 
 The `pixel-art-editor/` directory contains a browser-based 64×64 pixel art

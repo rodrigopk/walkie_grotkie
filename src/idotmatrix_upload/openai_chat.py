@@ -137,7 +137,7 @@ async def synthesize(
                 client to avoid repeated construction during long sessions.
 
     Returns:
-        WAV audio bytes ready to be played back via voice.play_audio().
+        MP3 audio bytes ready to be played back by the browser's AudioContext.
     """
     _client = client or openai.AsyncOpenAI(api_key=api_key)
 
@@ -145,10 +145,10 @@ async def synthesize(
         model="gpt-4o-mini-tts",
         voice=voice,  # type: ignore[arg-type]
         input=text,
-        response_format="wav",
+        response_format="mp3",
         extra_body={"instructions": voice_instructions},
     )
 
-    audio_bytes = response.read()
+    audio_bytes = await response.aread()
     logger.debug("Synthesized %d bytes of audio for %d chars of text", len(audio_bytes), len(text))
     return audio_bytes

@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Tauri
+src-tauri/target/
+src-tauri/binaries/grot-server-*
+
+# Logs
+*.log
+
+# Editor
+.DS_Store
+.env
+.env.local

@@ -293,6 +293,79 @@ def chat(
         click.echo("\nGoodbye!")
 
 
+@main.command()
+@click.option("--port", default=8765, type=int, help="WebSocket server port.")
+@click.option("--device-addr", default=None, help="BLE address (skip scan).")
+@click.option("--device-name", default="IDM-", help="Device name prefix for scanning.")
+@click.option("--model", default="gpt-4o", help="OpenAI chat model name.")
+@click.option(
+    "--voice",
+    default="nova",
+    help="OpenAI TTS voice (alloy, ash, coral, echo, fable, nova, onyx, sage, shimmer, verse).",
+)
+@click.option(
+    "--animations-dir",
+    default="grot_animations",
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory containing grot animation GIFs.",
+)
+@click.option(
+    "--api-key",
+    envvar="OPENAI_API_KEY",
+    required=True,
+    help="OpenAI API key (or set OPENAI_API_KEY env var).",
+)
+@click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
+@click.option("--no-cache", is_flag=True, help="Skip device address cache.")
+@click.option(
+    "--temperature",
+    default=0.7,
+    type=click.FloatRange(0.0, 2.0),
+    help="LLM sampling temperature (0.0=deterministic, 2.0=creative). Default: 0.7.",
+)
+@click.option(
+    "-d", "--debug",
+    is_flag=True,
+    help="Write debug logs to grot-ws-server.log (keeps terminal clean).",
+)
+def serve(
+    port: int,
+    device_addr: str | None,
+    device_name: str,
+    model: str,
+    voice: str,
+    animations_dir: str,
+    api_key: str,
+    chunk_size: int,
+    no_cache: bool,
+    temperature: float,
+    debug: bool,
+) -> None:
+    """Start the WebSocket server for the Grot walkie-talkie UI."""
+    if debug:
+        _setup_debug_file_logging(Path("grot-ws-server.log"))
+
+    from .ws_server import GrotWebSocketServer
+
+    server = GrotWebSocketServer(
+        api_key=api_key,
+        model=model,
+        tts_voice=voice,
+        animations_dir=Path(animations_dir),
+        device_address=device_addr,
+        device_name_prefix=device_name,
+        use_cache=not no_cache,
+        chunk_size=chunk_size,
+        port=port,
+        temperature=temperature,
+    )
+
+    try:
+        asyncio.run(server.start())
+    except KeyboardInterrupt:
+        click.echo("\nServer stopped.")
+
+
 @main.command("voice-chat")
 @click.option("--device-addr", default=None, help="BLE address (skip scan).")
 @click.option("--device-name", default="IDM-", help="Device name prefix for scanning.")

@@ -26,11 +26,29 @@ src/idotmatrix_upload/    # All production code lives here
   cli.py                  # Click CLI entry point
   ble.py                  # BLE scanning, connection, MTU negotiation
   protocol.py             # Packet framing, chunking, headers
-  gif.py                  # GIF validation and preprocessing
+  preprocess.py           # GIF validation and preprocessing
   upload.py               # Upload orchestration (ties ble + protocol)
   generate.py             # GIF generation and frame assembly (assemble_gif_from_frames)
   sprite.py               # Sprite loading and frame rendering for animations
+  service.py              # DeviceService — long-lived BLE connection + ACK flow
+  device_cache.py         # BLE address cache (~/.config/idotmatrix/devices.json)
+  chat.py                 # Text chat session (Anthropic Claude)
+  voice_chat.py           # Voice chat session (push-to-talk)
+  voice.py                # PushToTalkRecorder + audio playback
+  openai_chat.py          # OpenAI STT (Whisper), TTS, GPT-4o chat session
+  animations.py           # AnimationRegistry + AnimationController
+  chat_commands.py        # Shared slash command handlers
+  prompts.py              # Grot system prompt and mood tag format
+  ws_server.py            # WebSocket server for the walkie-talkie UI
 tests/                    # pytest test suite
+walkie-talkie/            # Tauri 2 desktop walkie-talkie app
+  src/                    # React + Vite + TypeScript UI
+  src-tauri/              # Rust Tauri shell
+  build-sidecar.sh        # PyInstaller build for the Python sidecar
+  README.md               # Walkie-talkie quick-start
+  INSTALL.md              # Step-by-step setup (all OSes)
+  AGENTS.md               # Architecture, protocol reference, conventions
+pixel-art-editor/         # Browser-based 64x64 pixel art editor
 docs/
   grot-animation-guide.md # Grot drawing & animation reference
   plans/                  # Design documents (not committed)
@@ -83,6 +101,19 @@ docs/
 - Exit codes: 0 = success, 1 = user error (bad file, wrong size), 2 = device
   error (connection failed, upload aborted).
 - `--verbose` enables DEBUG-level logging via the `logging` module.
+
+### WebSocket Server (`ws_server.py`)
+
+- `GrotWebSocketServer` wraps the full voice pipeline behind a JSON WebSocket API.
+- One concurrent client connection is supported; additional connections receive
+  an error and are closed.
+- The `_processing` flag must be held for the full voice round-trip to prevent
+  overlapping requests.
+- All `_send*` helpers swallow exceptions silently (broken connection must not
+  crash the server).
+- The server runs on the same asyncio event loop as BLE/animation operations.
+- Start via: `idotmatrix-upload serve --port 8765`
+- Full protocol reference in [`walkie-talkie/AGENTS.md`](walkie-talkie/AGENTS.md).
 
 ### Testing
 
