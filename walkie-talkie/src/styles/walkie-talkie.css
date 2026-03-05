@@ -224,6 +224,30 @@ body,
   pointer-events: none;
 }
 
+/* ── Loading screen ───────────────────────────────────────────── */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  gap: 16px;
+}
+
+.loading-animation {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+}
+
+.loading-caption {
+  color: var(--led-green);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
 /* Pulsing ring animation for recording state */
 @keyframes ptt-pulse {
   0% {

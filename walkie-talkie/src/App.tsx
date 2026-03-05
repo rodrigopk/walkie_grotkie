@@ -19,8 +19,13 @@ export default function App() {
 
   const [lines, setLines] = useState<DisplayLine[]>([]);
   const [buttonState, setButtonState] = useState<ButtonState>("disabled");
+  // Flips to true when the first voice_audio arrives (greeting complete).
+  const [appReady, setAppReady] = useState(false);
+
   // Accumulates streaming tokens for the current Grot response.
   const tokenBufferRef = useRef<string>("");
+  // Buffers Grot's text until the matching voice_audio arrives so both appear together.
+  const pendingGrotTextRef = useRef<string>("");
 
   // Keep buttonState accessible inside onMessage without stale closures.
   const buttonStateRef = useRef<ButtonState>("disabled");
@@ -37,11 +42,11 @@ export default function App() {
     switch (msg.type) {
       case "ready":
         setButtonState("idle");
-        addLine("Ready. Hold the button to talk.", "status");
         break;
 
       case "status":
-        addLine(msg.text, "status");
+        // Status messages are informational only; log them for debugging.
+        console.log("[status]", msg.text);
         break;
 
       case "transcription":
@@ -49,53 +54,67 @@ export default function App() {
         break;
 
       case "chat_token":
-        // Accumulate tokens silently; show the full response on chat_done.
+        // Accumulate tokens silently; the full response will be shown on voice_audio.
         tokenBufferRef.current += msg.text;
         break;
 
       case "chat_done": {
         const text = msg.text || tokenBufferRef.current;
         tokenBufferRef.current = "";
-        if (text) addLine(`Grot: ${text}`, "grot");
+        // Buffer the text — it will be shown when voice_audio arrives so both
+        // appear simultaneously.
+        pendingGrotTextRef.current = text;
         break;
       }
 
-      case "voice_audio":
-        // Play Grot's spoken response; re-enable button after audio finishes.
-        void playAudioFromBase64(msg.data).catch((err) => {
-          console.error("[App] Audio playback failed", err);
-        }).finally(() => {
-          setButtonState("idle");
-        });
+      case "voice_audio": {
+        // Show Grot's text in sync with audio playback starting.
+        const pending = pendingGrotTextRef.current;
+        pendingGrotTextRef.current = "";
+        if (pending) addLine(`Grot: ${pending}`, "grot");
+
+        // Transition out of the loading screen on the very first voice_audio.
+        setAppReady(true);
+
+        void playAudioFromBase64(msg.data)
+          .catch((err) => {
+            console.error("[App] Audio playback failed", err);
+          })
+          .finally(() => {
+            ws.send({ type: "audio_done" });
+            setButtonState("idle");
+          });
         break;
+      }
 
       case "animation":
         // Animation state changes are informational — no UI update needed here.
         break;
 
-      case "error":
+      case "error": {
+        // Flush any buffered Grot text so it is never silently lost.
+        const pending = pendingGrotTextRef.current;
+        pendingGrotTextRef.current = "";
+        if (pending) addLine(`Grot: ${pending}`, "grot");
+
         addLine(`Error: ${msg.text}`, "error");
         setButtonState("idle");
         break;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ws = useWebSocket(WS_URL, handleMessage);
 
-  // ── Map WebSocket status to LED + button state ────────────────────────
+  // ── Map WebSocket connection status to button state ───────────────────
   useEffect(() => {
     if (ws.status === "connecting") {
       setButtonState("disabled");
-      addLine("Connecting to Grot server...", "status");
-    } else if (ws.status === "connected") {
-      // Button enabled when server sends "ready" (see message handler below)
     } else if (ws.status === "disconnected") {
       setButtonState("disabled");
-      addLine("Disconnected. Reconnecting...", "error");
     } else if (ws.status === "error") {
       setButtonState("disabled");
-      addLine("Connection error. Retrying...", "error");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws.status]);
@@ -113,7 +132,6 @@ export default function App() {
 
     const audioB64 = await recorder.stopRecording();
     if (!audioB64) {
-      addLine("No audio captured. Please try again.", "status");
       setButtonState("idle");
       return;
     }
@@ -148,7 +166,20 @@ export default function App() {
 
   return (
     <WalkieTalkie>
-      <LEDDisplay lines={lines} />
+      {appReady ? (
+        <LEDDisplay lines={lines} />
+      ) : (
+        <div className="device-screen">
+          <div className="loading-container">
+            <img
+              src="/grot-spin.gif"
+              alt="Grot waking up"
+              className="loading-animation"
+            />
+            <p className="loading-caption">Grot is waking up...</p>
+          </div>
+        </div>
+      )}
       <div className="device-button-area">
         <PushToTalkButton
           state={buttonState}

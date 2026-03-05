@@ -9,6 +9,7 @@ Protocol (all messages are JSON with a ``type`` field):
 
 Client → Server
   { "type": "voice_audio",    "data": "<base64 WAV>" }
+  { "type": "audio_done" }                                       # signals playback complete
   { "type": "command",        "text": "/animation dancing" }
   { "type": "connect_device", "address": "AA:BB:CC:DD:EE:FF" }  # optional
   { "type": "disconnect" }
@@ -94,6 +95,7 @@ class GrotWebSocketServer:
         self._device: DeviceService | None = None
         self._controller: AnimationController | None = None
         self._processing: bool = False
+        self._audio_done_event: asyncio.Event | None = None
 
     # ------------------------------------------------------------------
     # Sending helpers
@@ -191,6 +193,20 @@ class GrotWebSocketServer:
         assert self._controller is not None
         assert self._openai_client is not None
 
+        # Hold the processing flag so voice_audio messages received during the
+        # greeting are rejected rather than racing with the greeting pipeline.
+        self._processing = True
+        try:
+            await self._send_greeting_inner()
+        finally:
+            self._processing = False
+
+    async def _send_greeting_inner(self) -> None:
+        """Inner greeting logic (runs inside _send_greeting's processing guard)."""
+        assert self._session is not None
+        assert self._controller is not None
+        assert self._openai_client is not None
+
         await self._controller.transition(AnimationState.EXCITED)
         await self._send_status("Grot is waking up...")
 
@@ -213,11 +229,16 @@ class GrotWebSocketServer:
                 voice=self._tts_voice,
                 client=self._openai_client,
             )
+            self._audio_done_event = asyncio.Event()
+            await self._controller.transition(AnimationState.TALKING)
             await self._send(
                 {"type": "voice_audio", "data": base64.b64encode(audio).decode()}
             )
+            try:
+                await asyncio.wait_for(self._audio_done_event.wait(), timeout=120.0)
+            except asyncio.TimeoutError:
+                logger.warning("Timed out waiting for audio_done signal in greeting; proceeding anyway")
 
-        await asyncio.sleep(IDLE_REVERT_DELAY)
         await self._controller.transition(AnimationState.IDLE)
 
     # ------------------------------------------------------------------
@@ -284,15 +305,24 @@ class GrotWebSocketServer:
                         client=self._openai_client,
                     )
 
-            # TALKING animation + send audio together
+            # TALKING animation + send audio together; wait for client to
+            # signal playback completion before advancing the animation state.
+            self._audio_done_event = asyncio.Event()
             await self._controller.transition(AnimationState.TALKING)
             if audio:
                 await self._send(
                     {"type": "voice_audio", "data": base64.b64encode(audio).decode()}
                 )
+                try:
+                    await asyncio.wait_for(self._audio_done_event.wait(), timeout=120.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Timed out waiting for audio_done signal; proceeding anyway")
 
-            # Settle into mood
+            # Settle into mood. [mood:talking] means a normal conversational reply
+            # — once audio has finished playing, simply revert to idle.
             mood = extract_mood(full_response)
+            if mood == AnimationState.TALKING:
+                mood = AnimationState.IDLE
             await self._controller.transition(mood)
 
             if mood != AnimationState.IDLE:
@@ -378,7 +408,10 @@ class GrotWebSocketServer:
                 return
 
             await self._send({"type": "ready"})
-            await self._send_greeting()
+            # Run greeting as a background task so the message loop below starts
+            # immediately — this is required for the audio_done signal sent by
+            # the client to be received while the greeting is still in progress.
+            asyncio.create_task(self._send_greeting())
 
             async for raw_msg in websocket:
                 try:
@@ -396,6 +429,10 @@ class GrotWebSocketServer:
 
                 elif msg_type == "command":
                     await self._handle_command(msg.get("text", ""))
+
+                elif msg_type == "audio_done":
+                    if self._audio_done_event is not None:
+                        self._audio_done_event.set()
 
                 elif msg_type == "connect_device":
                     # Device is already connected at startup; ignore late re-connect requests

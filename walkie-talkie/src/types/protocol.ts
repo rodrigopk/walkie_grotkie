@@ -34,11 +34,17 @@ export type DisconnectMessage = {
   type: "disconnect";
 };
 
+/** Signal that audio playback has finished so the server can advance animation state. */
+export type AudioDoneMessage = {
+  type: "audio_done";
+};
+
 export type ClientMessage =
   | VoiceAudioMessage
   | CommandMessage
   | ConnectDeviceMessage
-  | DisconnectMessage;
+  | DisconnectMessage
+  | AudioDoneMessage;
 
 // ---------------------------------------------------------------------------
 // Server → Client
