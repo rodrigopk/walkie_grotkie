@@ -210,6 +210,12 @@ export default function App() {
   wsSendRef.current = ws.send;
 
   // ── Map WebSocket connection status to button state ───────────
+  // Also re-send the API key when the WebSocket reconnects after the initial
+  // setup, since the new server connection doesn't have the key yet.
+  // We track "has ever connected" instead of prev-status because React may
+  // render intermediate "connecting" state between "disconnected" and
+  // "connected", making prev-status unreliable for reconnect detection.
+  const hasConnectedRef = useRef(false);
   useEffect(() => {
     if (
       ws.status === "connecting" ||
@@ -217,6 +223,13 @@ export default function App() {
       ws.status === "error"
     ) {
       setButtonState("disabled");
+    }
+
+    if (ws.status === "connected") {
+      if (hasConnectedRef.current && apiKeyRef.current) {
+        ws.send({ type: "set_api_key", key: apiKeyRef.current });
+      }
+      hasConnectedRef.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws.status]);

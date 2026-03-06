@@ -32,8 +32,13 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import errno
 import json
 import logging
+import os
+import signal
+import subprocess
+import time as _time
 from pathlib import Path
 from typing import Any
 
@@ -225,6 +230,9 @@ class GrotWebSocketServer:
         assert self._controller is not None
         assert self._openai_client is not None
 
+        if self._processing:
+            logger.debug("Skipping duplicate greeting — pipeline already active")
+            return
         # Hold the processing flag so voice_audio messages received during the
         # greeting are rejected rather than racing with the greeting pipeline.
         self._processing = True
@@ -539,12 +547,48 @@ class GrotWebSocketServer:
     # Server entry point
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _kill_stale_server(port: int) -> bool:
+        """Kill any process already listening on *port*.
+
+        Returns True if a stale process was found and killed.
+        """
+        try:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            pids = result.stdout.strip()
+            if not pids:
+                return False
+            for pid_str in pids.splitlines():
+                try:
+                    os.kill(int(pid_str), signal.SIGTERM)
+                except (ProcessLookupError, ValueError):
+                    pass
+            _time.sleep(0.5)
+            return True
+        except Exception:
+            return False
+
     async def start(self) -> None:
         """Start the WebSocket server and block until interrupted."""
-        logger.info("WebSocket server listening on ws://localhost:%d", self._port)
-        print(f"WebSocket server listening on ws://localhost:{self._port}", flush=True)
+        try:
+            await self._bind_and_serve()
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            logger.warning("Port %d in use — killing stale process", self._port)
+            if self._kill_stale_server(self._port):
+                await self._bind_and_serve()
+            else:
+                raise
 
+    async def _bind_and_serve(self) -> None:
+        """Bind to the port and serve forever."""
         async with serve(self._handler, "localhost", self._port, reuse_address=True):
+            logger.info("WebSocket server listening on ws://localhost:%d", self._port)
+            print(f"WebSocket server listening on ws://localhost:{self._port}", flush=True)
             try:
                 await asyncio.get_running_loop().create_future()  # run forever
             except (KeyboardInterrupt, asyncio.CancelledError):
