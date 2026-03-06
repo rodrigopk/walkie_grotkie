@@ -83,7 +83,7 @@ describe("SmallButtons", () => {
     );
   });
 
-  it("renders exactly 4 disabled placeholder buttons (top row only)", () => {
+  it("renders exactly 2 disabled placeholder buttons", () => {
     render(
       <SmallButtons
         onRestart={vi.fn()}
@@ -95,13 +95,13 @@ describe("SmallButtons", () => {
     const disabled = screen
       .getAllByRole("button")
       .filter((btn) => btn.hasAttribute("disabled"));
-    expect(disabled).toHaveLength(4);
+    expect(disabled).toHaveLength(2);
   });
 
   it("does not call onRestart when a disabled placeholder is clicked", () => {
     const onRestart = vi.fn();
     render(<SmallButtons onRestart={onRestart} />);
-    const placeholder = screen.getByLabelText("Function 1");
+    const placeholder = screen.getByLabelText("Function 5");
     fireEvent.click(placeholder);
     expect(onRestart).not.toHaveBeenCalled();
   });

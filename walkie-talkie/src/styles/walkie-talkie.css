@@ -9,12 +9,12 @@
 }
 
 :root {
-  --housing-color: #1a1a1a;
+  --housing-color: #3a3a3a;
   --housing-highlight: #333;
   --panel-color: #d4a017;
   --panel-border: #b8860b;
   --panel-inner-border: #a07010;
-  --accent-strip: #8b2500;
+  --accent-strip: #522808;
   --led-bg: #000000;
   --led-green: #39ff14;
   --led-cyan: #00ffff;
@@ -51,10 +51,17 @@ body,
   height: 100%;
 }
 
+/* ── Device wrapper (holds antenna + body in a column) ────────── */
+.device-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ── Walkie-talkie body ───────────────────────────────────────── */
 .device-body {
   width: 340px;
-  height: 680px;
+  height: 600px;
   background: var(--housing-color);
   display: flex;
   flex-direction: column;
@@ -73,13 +80,22 @@ body,
 
 /* ── Antenna ──────────────────────────────────────────────────── */
 .device-antenna {
-  width: 10px;
-  height: 60px;
-  background: var(--housing-highlight);
-  position: absolute;
-  top: -60px;
-  left: 50%;
-  transform: translateX(-50%);
+  width: 32px;
+  height: 80px;
+  background: #1a1a1a;
+  /* Sits flush against the top of .device-body; 2px overlap hides the seam */
+  margin-bottom: -2px;
+  /* Rounded top to give the antenna a realistic nub shape */
+  border-radius: 3px 3px 0 0;
+}
+
+.device-antenna-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  flex: 1;
+  width: 100%;
+  padding-left: 8px;
 }
 
 /* ── Speaker grille ───────────────────────────────────────────── */
@@ -138,6 +154,13 @@ body,
   height: 5px;
   background: #111;
   pointer-events: none;
+}
+
+.grille-dots-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
 }
 
 /* ── Accent strip (dark red bar) ──────────────────────────────── */
@@ -233,13 +256,32 @@ body,
   font-style: italic;
 }
 
-/* ── PTT Button area ──────────────────────────────────────────── */
-.device-button-area {
-  width: 100%;
+/* ── Buttons container (dark housing around PTT + fn buttons) ─── */
+.buttons-container {
+  background: #3a3a3a;
+  padding: 10px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
   flex-shrink: 0;
+  clip-path: polygon(
+    4px 0, calc(100% - 4px) 0,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0 calc(100% - 4px), 0 4px
+  );
+}
+
+/* ── PTT outer bezel ──────────────────────────────────────────── */
+.ptt-outer {
+  background: #585858;
+  padding: 6px;
+  clip-path: polygon(
+    4px 0, calc(100% - 4px) 0,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0 calc(100% - 4px), 0 4px
+  );
 }
 
 /* ── Push-to-Talk button (rectangular) ───────────────────────── */
@@ -265,7 +307,7 @@ body,
 }
 
 .ptt-idle {
-  background: #777;
+  background: #989898;
 }
 
 .ptt-pressed {
@@ -295,21 +337,15 @@ body,
 
 /* ── Small function buttons ───────────────────────────────────── */
 .device-small-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.device-small-buttons-row {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
 .small-btn {
-  width: 32px;
-  height: 24px;
+  width: 100%;
+  height: 28px;
   border: 2px solid var(--small-button-border);
   background: var(--small-button-color);
   cursor: default;

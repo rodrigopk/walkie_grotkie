@@ -377,11 +377,34 @@ export default function App() {
             },
           ]}
         />
-        <div className="device-button-area">
+        <div className="buttons-container">
+          <div className="ptt-outer">
+            <PushToTalkButton
+              state="disabled"
+              onPressStart={() => void 0}
+              onPressEnd={() => void 0}
+            />
+          </div>
+          <SmallButtons
+            onRestart={handleRestart}
+            onHome={handleGoHome}
+            onCycleAnimation={handleCycleAnimation}
+            onSettings={handleOpenSettings}
+          />
+        </div>
+      </WalkieTalkie>
+    );
+  }
+
+  return (
+    <WalkieTalkie onQuit={() => void handleQuit()}>
+      {renderScreen()}
+      <div className="buttons-container">
+        <div className="ptt-outer">
           <PushToTalkButton
-            state="disabled"
-            onPressStart={() => void 0}
-            onPressEnd={() => void 0}
+            state={buttonState}
+            onPressStart={() => void handlePressStart()}
+            onPressEnd={() => void handlePressEnd()}
           />
         </div>
         <SmallButtons
@@ -390,26 +413,7 @@ export default function App() {
           onCycleAnimation={handleCycleAnimation}
           onSettings={handleOpenSettings}
         />
-      </WalkieTalkie>
-    );
-  }
-
-  return (
-    <WalkieTalkie onQuit={() => void handleQuit()}>
-      {renderScreen()}
-      <div className="device-button-area">
-        <PushToTalkButton
-          state={buttonState}
-          onPressStart={() => void handlePressStart()}
-          onPressEnd={() => void handlePressEnd()}
-        />
       </div>
-      <SmallButtons
-        onRestart={handleRestart}
-        onHome={handleGoHome}
-        onCycleAnimation={handleCycleAnimation}
-        onSettings={handleOpenSettings}
-      />
     </WalkieTalkie>
   );
 }
