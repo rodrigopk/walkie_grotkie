@@ -14,6 +14,8 @@ import type { ServerMessage } from "./types/protocol";
 
 const WS_URL = "ws://localhost:8765";
 
+const CYCLE_ANIMATIONS = ["thinking", "talking", "excited", "dancing"] as const;
+
 let _lineId = 0;
 function makeId() {
   return String(_lineId++);
@@ -67,6 +69,9 @@ export default function App() {
   // Keep apiKey accessible inside the validation effect without stale closure.
   const apiKeyRef = useRef<string>("");
   apiKeyRef.current = apiKey;
+
+  // Tracks which animation is next in the cycle (avoids re-creating the callback on each advance).
+  const animCycleRef = useRef(0);
 
   function addLine(text: string, variant: DisplayLine["variant"]) {
     setLines((prev) => [...prev, { id: makeId(), text, variant }]);
@@ -249,9 +254,19 @@ export default function App() {
     setAppPhase("validating");
   }, []);
 
-  const handleCancelSettings = useCallback(() => {
+  // Shared "go home" action: used by the Home button and the Settings cancel link.
+  const handleGoHome = useCallback(() => {
     setAppPhase(apiKeyRef.current ? "ready" : "needs_key");
   }, []);
+
+  // ── Animation cycle handler ───────────────────────────────────
+  const handleCycleAnimation = useCallback(() => {
+    const name = CYCLE_ANIMATIONS[animCycleRef.current];
+    animCycleRef.current = (animCycleRef.current + 1) % CYCLE_ANIMATIONS.length;
+    ws.send({ type: "command", text: `/animation ${name}` });
+    addLine(`[animation: ${name}]`, "system");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ws]);
 
   // ── Visor routing ─────────────────────────────────────────────
   function renderScreen() {
@@ -315,7 +330,7 @@ export default function App() {
         return (
           <SettingsView
             onSave={(key) => void handleSaveKey(key)}
-            onCancel={handleCancelSettings}
+            onCancel={handleGoHome}
             initialKey={apiKey}
           />
         );
@@ -347,6 +362,8 @@ export default function App() {
         </div>
         <SmallButtons
           onQuit={() => void handleQuit()}
+          onHome={handleGoHome}
+          onCycleAnimation={handleCycleAnimation}
           onSettings={handleOpenSettings}
         />
       </WalkieTalkie>
@@ -365,6 +382,8 @@ export default function App() {
       </div>
       <SmallButtons
         onQuit={() => void handleQuit()}
+        onHome={handleGoHome}
+        onCycleAnimation={handleCycleAnimation}
         onSettings={handleOpenSettings}
       />
     </WalkieTalkie>

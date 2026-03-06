@@ -15,6 +15,14 @@ describe("SmallButtons", () => {
     expect(onQuit).toHaveBeenCalledOnce();
   });
 
+  it("quit button has the correct aria-label", () => {
+    render(<SmallButtons onQuit={vi.fn()} />);
+    expect(screen.getByTestId("quit-button")).toHaveAttribute(
+      "aria-label",
+      "Quit application"
+    );
+  });
+
   it("renders the settings button when onSettings is provided", () => {
     render(<SmallButtons onQuit={vi.fn()} onSettings={vi.fn()} />);
     expect(screen.getByTestId("settings-button")).toBeInTheDocument();
@@ -35,20 +43,59 @@ describe("SmallButtons", () => {
     );
   });
 
-  it("quit button has the correct aria-label", () => {
-    render(<SmallButtons onQuit={vi.fn()} />);
-    expect(screen.getByTestId("quit-button")).toHaveAttribute(
+  it("renders the home button when onHome is provided", () => {
+    render(<SmallButtons onQuit={vi.fn()} onHome={vi.fn()} />);
+    expect(screen.getByTestId("home-button")).toBeInTheDocument();
+  });
+
+  it("calls onHome when the home button is clicked", () => {
+    const onHome = vi.fn();
+    render(<SmallButtons onQuit={vi.fn()} onHome={onHome} />);
+    fireEvent.click(screen.getByTestId("home-button"));
+    expect(onHome).toHaveBeenCalledOnce();
+  });
+
+  it("home button has the correct aria-label", () => {
+    render(<SmallButtons onQuit={vi.fn()} onHome={vi.fn()} />);
+    expect(screen.getByTestId("home-button")).toHaveAttribute(
       "aria-label",
-      "Quit application"
+      "Home"
     );
   });
 
-  it("renders disabled placeholder buttons", () => {
-    render(<SmallButtons onQuit={vi.fn()} />);
+  it("renders the cycle animation button when onCycleAnimation is provided", () => {
+    render(<SmallButtons onQuit={vi.fn()} onCycleAnimation={vi.fn()} />);
+    expect(screen.getByTestId("cycle-animation-button")).toBeInTheDocument();
+  });
+
+  it("calls onCycleAnimation when the cycle animation button is clicked", () => {
+    const onCycle = vi.fn();
+    render(<SmallButtons onQuit={vi.fn()} onCycleAnimation={onCycle} />);
+    fireEvent.click(screen.getByTestId("cycle-animation-button"));
+    expect(onCycle).toHaveBeenCalledOnce();
+  });
+
+  it("cycle animation button has the correct aria-label", () => {
+    render(<SmallButtons onQuit={vi.fn()} onCycleAnimation={vi.fn()} />);
+    expect(screen.getByTestId("cycle-animation-button")).toHaveAttribute(
+      "aria-label",
+      "Cycle animation"
+    );
+  });
+
+  it("renders exactly 4 disabled placeholder buttons (top row only)", () => {
+    render(
+      <SmallButtons
+        onQuit={vi.fn()}
+        onHome={vi.fn()}
+        onCycleAnimation={vi.fn()}
+        onSettings={vi.fn()}
+      />
+    );
     const disabled = screen
       .getAllByRole("button")
       .filter((btn) => btn.hasAttribute("disabled"));
-    expect(disabled.length).toBeGreaterThanOrEqual(6);
+    expect(disabled).toHaveLength(4);
   });
 
   it("does not call onQuit when a disabled placeholder is clicked", () => {

@@ -54,6 +54,12 @@ describe("LEDDisplay", () => {
     expect(el).toHaveClass("led-error");
   });
 
+  it("applies the correct CSS class for system variant", () => {
+    render(<LEDDisplay lines={[makeLine("[animation: dancing]", "system", "1")]} />);
+    const el = screen.getByTestId("led-line-system");
+    expect(el).toHaveClass("led-system");
+  });
+
   it("renders multiple lines in order", () => {
     const lines: DisplayLine[] = [
       makeLine("first", "status", "a"),

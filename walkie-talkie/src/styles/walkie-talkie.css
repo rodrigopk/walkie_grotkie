@@ -59,9 +59,6 @@ body,
   flex-direction: column;
   align-items: center;
   padding: 0;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   position: relative;
   overflow: hidden;
 }
@@ -70,18 +67,12 @@ body,
 .device-antenna {
   width: 10px;
   height: 60px;
-  background: linear-gradient(
-    to right,
-    var(--housing-highlight),
-    #555,
-    var(--housing-highlight)
-  );
+  background: var(--housing-highlight);
   border-radius: 4px 4px 0 0;
   position: absolute;
   top: -60px;
   left: 50%;
   transform: translateX(-50%);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Speaker grille ───────────────────────────────────────────── */
@@ -107,7 +98,6 @@ body,
   height: 5px;
   border-radius: 50%;
   background: #111;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 
@@ -133,9 +123,6 @@ body,
   align-items: stretch;
   padding: 10px;
   gap: 10px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* ── LED Screen ───────────────────────────────────────────────── */
@@ -145,9 +132,6 @@ body,
   background: var(--led-bg);
   border-radius: 4px;
   border: 2px solid #111;
-  box-shadow:
-    inset 0 2px 10px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
   padding: 10px;
   overflow: hidden;
   display: flex;
@@ -193,6 +177,11 @@ body,
   color: var(--led-red);
 }
 
+.led-system {
+  color: rgba(180, 140, 255, 0.7);
+  font-style: italic;
+}
+
 /* ── PTT Button area ──────────────────────────────────────────── */
 .device-button-area {
   width: 100%;
@@ -213,42 +202,29 @@ body,
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: transform 60ms ease, box-shadow 60ms ease;
+  transition: transform 60ms ease;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .ptt-idle {
-  background: linear-gradient(to bottom, #999 0%, #777 50%, #666 100%);
-  box-shadow:
-    0 4px 0 var(--button-grey-shadow),
-    0 6px 12px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: #777;
 }
 
 .ptt-pressed {
-  background: linear-gradient(to bottom, #777 0%, #555 100%);
-  box-shadow:
-    0 1px 0 var(--button-grey-shadow),
-    0 2px 4px rgba(0, 0, 0, 0.5);
+  background: #555;
   transform: translateY(3px);
 }
 
 .ptt-disabled {
-  background: linear-gradient(to bottom, #666 0%, #4a4a4a 100%);
-  box-shadow:
-    0 4px 0 #2a2a2a,
-    0 6px 12px rgba(0, 0, 0, 0.3);
+  background: #4a4a4a;
   cursor: not-allowed;
 }
 
 .ptt-recording {
-  background: linear-gradient(to bottom, #888 0%, #666 100%);
-  box-shadow:
-    0 1px 0 var(--button-grey-shadow),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(180, 180, 180, 0.35);
+  background: #666;
   transform: translateY(3px);
+  animation: ptt-pulse 1.2s ease-in-out infinite;
 }
 
 .ptt-label {
@@ -257,7 +233,6 @@ body,
   font-weight: 700;
   letter-spacing: 0.1em;
   text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
 
@@ -280,10 +255,7 @@ body,
   height: 24px;
   border-radius: 3px;
   border: 2px solid var(--small-button-border);
-  background: linear-gradient(to bottom, #4a4a4a, var(--small-button-color));
-  box-shadow:
-    0 2px 0 #1a1a1a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: var(--small-button-color);
   cursor: default;
   font-size: 9px;
   font-weight: 700;
@@ -295,21 +267,15 @@ body,
 }
 
 .small-btn-quit {
-  background: linear-gradient(to bottom, #553333, #3a2020);
+  background: #3a2020;
   border-color: #111;
   color: rgba(255, 100, 100, 0.85);
   cursor: pointer;
-  box-shadow:
-    0 2px 0 #1a1a1a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   font-size: 11px;
 }
 
 .small-btn-quit:active {
   transform: translateY(1px);
-  box-shadow:
-    0 1px 0 #1a1a1a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* ── Loading screen ───────────────────────────────────────────── */
@@ -337,21 +303,41 @@ body,
 
 /* ── Settings gear button ──────────────────────────────────────── */
 .small-btn-settings {
-  background: linear-gradient(to bottom, #2a2a44, #1e1e33);
+  background: #1e1e33;
   border-color: #111;
   color: rgba(150, 180, 255, 0.85);
   cursor: pointer;
-  box-shadow:
-    0 2px 0 #1a1a1a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   font-size: 11px;
 }
 
 .small-btn-settings:active {
   transform: translateY(1px);
-  box-shadow:
-    0 1px 0 #1a1a1a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ── Home button ───────────────────────────────────────────────── */
+.small-btn-home {
+  background: #1e331e;
+  border-color: #111;
+  color: rgba(100, 255, 100, 0.85);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.small-btn-home:active {
+  transform: translateY(1px);
+}
+
+/* ── Animation cycle button ────────────────────────────────────── */
+.small-btn-anim {
+  background: #2a1e33;
+  border-color: #111;
+  color: rgba(180, 140, 255, 0.85);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.small-btn-anim:active {
+  transform: translateY(1px);
 }
 
 /* ── Settings view (inside visor) ──────────────────────────────── */
@@ -392,7 +378,6 @@ body,
 
 .settings-input:focus {
   border-color: var(--led-green);
-  box-shadow: 0 0 4px rgba(57, 255, 20, 0.2);
 }
 
 .settings-input::placeholder {
@@ -424,28 +409,8 @@ body,
   transform: translateY(1px);
 }
 
-/* ── Pulsing glow animation for recording state ───────────────── */
+/* ── Pulsing opacity animation for recording state ────────────── */
 @keyframes ptt-pulse {
-  0% {
-    box-shadow:
-      0 1px 0 var(--button-grey-shadow),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      0 0 0 0 rgba(200, 200, 200, 0.5);
-  }
-  70% {
-    box-shadow:
-      0 1px 0 var(--button-grey-shadow),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      0 0 0 16px rgba(200, 200, 200, 0);
-  }
-  100% {
-    box-shadow:
-      0 1px 0 var(--button-grey-shadow),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      0 0 0 0 rgba(200, 200, 200, 0);
-  }
-}
-
-.ptt-recording {
-  animation: ptt-pulse 1.2s ease-out infinite;
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

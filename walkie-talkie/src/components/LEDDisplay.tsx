@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export type DisplayVariant = "status" | "user" | "grot" | "error";
+export type DisplayVariant = "status" | "user" | "grot" | "error" | "system";
 
 export interface DisplayLine {
   id: string;
@@ -17,6 +17,7 @@ const VARIANT_CLASS: Record<DisplayVariant, string> = {
   user: "led-user",
   grot: "led-grot",
   error: "led-error",
+  system: "led-system",
 };
 
 export default function LEDDisplay({ lines }: LEDDisplayProps) {
