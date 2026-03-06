@@ -4,6 +4,7 @@ import {
   parseServerMessage,
   serialiseMessage,
   type ClientMessage,
+  type ServerMessage,
 } from "../types/protocol";
 
 describe("isServerMessage", () => {
@@ -11,6 +12,7 @@ describe("isServerMessage", () => {
     expect(isServerMessage({ type: "ready" })).toBe(true);
     expect(isServerMessage({ type: "status", text: "hello" })).toBe(true);
     expect(isServerMessage({ type: "animation", state: "talking" })).toBe(true);
+    expect(isServerMessage({ type: "auth_error", text: "Invalid key" })).toBe(true);
   });
 
   it("returns false for null", () => {
@@ -60,6 +62,11 @@ describe("parseServerMessage", () => {
   it("handles empty string gracefully", () => {
     expect(parseServerMessage("")).toBeNull();
   });
+
+  it("parses an auth_error message", () => {
+    const msg = parseServerMessage('{"type":"auth_error","text":"Invalid key"}');
+    expect(msg).toEqual({ type: "auth_error", text: "Invalid key" } satisfies ServerMessage);
+  });
 });
 
 describe("serialiseMessage", () => {
@@ -81,6 +88,12 @@ describe("serialiseMessage", () => {
     expect(JSON.parse(raw)).toEqual({ type: "disconnect" });
   });
 
+  it("serialises a set_api_key message", () => {
+    const msg: ClientMessage = { type: "set_api_key", key: "sk-test123" };
+    const raw = serialiseMessage(msg);
+    expect(JSON.parse(raw)).toEqual(msg);
+  });
+
   it("serialises a connect_device message with optional address", () => {
     const msg: ClientMessage = {
       type: "connect_device",
@@ -96,6 +109,7 @@ describe("serialiseMessage", () => {
       { type: "command", text: "/animation dancing" },
       { type: "connect_device" },
       { type: "disconnect" },
+      { type: "set_api_key", key: "sk-test" },
     ];
     for (const msg of messages) {
       expect(() => JSON.parse(serialiseMessage(msg))).not.toThrow();

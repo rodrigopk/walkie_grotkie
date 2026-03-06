@@ -311,9 +311,12 @@ def chat(
 )
 @click.option(
     "--api-key",
-    envvar="OPENAI_API_KEY",
-    required=True,
-    help="OpenAI API key (or set OPENAI_API_KEY env var).",
+    default=None,
+    help=(
+        "OpenAI API key. If omitted, the walkie-talkie UI will prompt for it "
+        "at startup. Intentionally not read from OPENAI_API_KEY so the UI "
+        "always owns key delivery when launched via Tauri."
+    ),
 )
 @click.option("--chunk-size", default=4096, type=int, help="Bytes per protocol chunk.")
 @click.option("--no-cache", is_flag=True, help="Skip device address cache.")
@@ -335,7 +338,7 @@ def serve(
     model: str,
     voice: str,
     animations_dir: str,
-    api_key: str,
+    api_key: str | None,
     chunk_size: int,
     no_cache: bool,
     temperature: float,
@@ -348,7 +351,7 @@ def serve(
     from .ws_server import GrotWebSocketServer
 
     server = GrotWebSocketServer(
-        api_key=api_key,
+        api_key=api_key or "",
         model=model,
         tts_voice=voice,
         animations_dir=Path(animations_dir),

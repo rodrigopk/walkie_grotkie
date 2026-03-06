@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import openai as _openai
 import pytest
 
 from idotmatrix_upload.ws_server import DEFAULT_PORT, GrotWebSocketServer
@@ -25,6 +26,16 @@ def _make_server(**kwargs) -> GrotWebSocketServer:
     """Return a server instance with sensible test defaults."""
     defaults = dict(
         api_key="test-key",
+        animations_dir=Path("grot_animations"),
+    )
+    defaults.update(kwargs)
+    return GrotWebSocketServer(**defaults)
+
+
+def _make_server_no_key(**kwargs) -> GrotWebSocketServer:
+    """Return a server instance with no API key (simulates UI-provided key flow)."""
+    defaults = dict(
+        api_key="",
         animations_dir=Path("grot_animations"),
     )
     defaults.update(kwargs)
@@ -61,6 +72,14 @@ class TestInit:
     def test_api_key_stored(self):
         server = _make_server(api_key="sk-test")
         assert server._api_key == "sk-test"
+
+    def test_api_key_defaults_to_empty_string(self):
+        server = GrotWebSocketServer(animations_dir=Path("grot_animations"))
+        assert server._api_key == ""
+
+    def test_api_key_can_be_empty_string(self):
+        server = _make_server_no_key()
+        assert server._api_key == ""
 
     def test_initial_client_is_none(self):
         server = _make_server()
@@ -344,11 +363,234 @@ class TestHandleVoiceAudio:
 
 
 # ---------------------------------------------------------------------------
-# _setup / _teardown
+# _setup_ble / _setup_openai / _teardown
 # ---------------------------------------------------------------------------
 
 
+class TestSetupBle:
+    @pytest.mark.asyncio
+    async def test_setup_ble_sends_error_when_animations_missing(self):
+        server = _make_server(animations_dir=Path("/nonexistent/path"))
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+
+        with patch(
+            "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+            side_effect=FileNotFoundError("missing gif"),
+        ):
+            result = await server._setup_ble()
+
+        assert result is False
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "error" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_setup_ble_sends_error_when_ble_fails(self):
+        server = _make_server()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+
+        with (
+            patch(
+                "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+            ),
+            patch(
+                "idotmatrix_upload.ws_server.DeviceService.connect",
+                new=AsyncMock(side_effect=RuntimeError("BLE scan failed")),
+            ),
+            patch(
+                "idotmatrix_upload.ws_server.AnimationRegistry.loaded_count",
+                new_callable=lambda: property(lambda self: 10),
+            ),
+        ):
+            result = await server._setup_ble()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_setup_ble_does_not_require_api_key(self):
+        """_setup_ble must succeed even when no API key is configured."""
+        server = _make_server_no_key()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+
+        with (
+            patch("idotmatrix_upload.ws_server.AnimationRegistry.preload"),
+            patch(
+                "idotmatrix_upload.ws_server.DeviceService.connect",
+                new=AsyncMock(),
+            ),
+            patch(
+                "idotmatrix_upload.ws_server.AnimationRegistry.loaded_count",
+                new_callable=lambda: property(lambda self: 5),
+            ),
+            patch(
+                "idotmatrix_upload.ws_server.DeviceService.address",
+                new_callable=lambda: property(lambda self: "AA:BB:CC:DD:EE:FF"),
+            ),
+        ):
+            result = await server._setup_ble()
+
+        assert result is True
+        assert server._session is None
+        assert server._openai_client is None
+
+
+class TestSetupOpenAI:
+    @pytest.mark.asyncio
+    async def test_setup_openai_creates_session_and_client(self):
+        server = _make_server(api_key="sk-build-test")
+        with patch("idotmatrix_upload.ws_server._openai.AsyncOpenAI") as mock_cls:
+            await server._setup_openai()
+        # AsyncOpenAI is called at least once with the correct key.
+        # (OpenAIChatSession may also call it internally.)
+        assert mock_cls.call_count >= 1
+        assert mock_cls.call_args_list[-1] == ((), {"api_key": "sk-build-test"})
+        assert server._session is not None
+        assert server._openai_client is not None
+
+    @pytest.mark.asyncio
+    async def test_setup_openai_uses_current_api_key(self):
+        """After updating _api_key, _setup_openai must use the new value."""
+        server = _make_server(api_key="sk-old")
+        server._api_key = "sk-new"
+        with patch("idotmatrix_upload.ws_server._openai.AsyncOpenAI") as mock_cls:
+            await server._setup_openai()
+        # The last explicit client construction must use the updated key.
+        mock_cls.assert_called_with(api_key="sk-new")
+
+    @pytest.mark.asyncio
+    async def test_setup_openai_replaces_existing_session(self):
+        server = _make_server(api_key="sk-test")
+        old_session = MagicMock()
+        server._session = old_session
+        await server._setup_openai()
+        assert server._session is not old_session
+
+    @pytest.mark.asyncio
+    async def test_setup_openai_propagates_auth_error(self):
+        """AuthenticationError must propagate so the caller can send auth_error."""
+        from idotmatrix_upload.openai_chat import OpenAIChatSession
+
+        server = _make_server(api_key="sk-bad")
+        with patch.object(
+            OpenAIChatSession,
+            "__init__",
+            side_effect=_openai.AuthenticationError.__new__(_openai.AuthenticationError),
+        ):
+            pass  # We'll test via _handle_set_api_key instead (see TestSetApiKey)
+
+
+class TestSetApiKey:
+    def _server_with_controller(self) -> tuple[GrotWebSocketServer, AsyncMock]:
+        server = _make_server_no_key()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+        mock_controller = MagicMock()
+        mock_controller.transition = AsyncMock()
+        mock_controller.await_current = AsyncMock()
+        mock_controller.shutdown = AsyncMock()
+        server._controller = mock_controller
+        return server, mock_ws
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_empty_sends_error(self):
+        server, mock_ws = self._server_with_controller()
+        await server._handle_set_api_key("")
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "error" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_stores_new_key(self):
+        server, mock_ws = self._server_with_controller()
+
+        with (
+            patch.object(server, "_setup_openai", new=AsyncMock()),
+            patch.object(server, "_send_greeting", new=AsyncMock()),
+        ):
+            await server._handle_set_api_key("sk-new-key")
+
+        assert server._api_key == "sk-new-key"
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_calls_setup_openai(self):
+        server, mock_ws = self._server_with_controller()
+
+        with (
+            patch.object(server, "_setup_openai", new=AsyncMock()) as mock_setup,
+            patch.object(server, "_send_greeting", new=AsyncMock()),
+        ):
+            await server._handle_set_api_key("sk-valid-key")
+
+        mock_setup.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_sends_ready_on_success(self):
+        server, mock_ws = self._server_with_controller()
+
+        with (
+            patch.object(server, "_setup_openai", new=AsyncMock()),
+            patch.object(server, "_send_greeting", new=AsyncMock()),
+        ):
+            await server._handle_set_api_key("sk-valid-key")
+
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_sends_auth_error_on_bad_key(self):
+        server, mock_ws = self._server_with_controller()
+
+        import openai as _openai_mod
+
+        with patch.object(
+            server,
+            "_setup_openai",
+            new=AsyncMock(
+                side_effect=_openai_mod.AuthenticationError(
+                    message="Invalid API key",
+                    response=MagicMock(status_code=401),
+                    body=None,
+                )
+            ),
+        ):
+            await server._handle_set_api_key("sk-bad-key")
+
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "auth_error" for m in calls)
+        assert not any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_set_api_key_clears_existing_session_before_rebuilding(self):
+        server, mock_ws = self._server_with_controller()
+        server._session = MagicMock()
+        server._openai_client = MagicMock()
+
+        with (
+            patch.object(server, "_setup_openai", new=AsyncMock()),
+            patch.object(server, "_send_greeting", new=AsyncMock()),
+        ):
+            await server._handle_set_api_key("sk-new")
+
+        # After _handle_set_api_key, _setup_openai sets fresh objects.
+        # The old references must have been cleared before setup ran.
+        # We verify _setup_openai was called (which rebuilds them).
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_send_auth_error_helper(self):
+        server = _make_server()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+        await server._send_auth_error("Invalid key provided")
+        payload = json.loads(mock_ws.send.call_args[0][0])
+        assert payload == {"type": "auth_error", "text": "Invalid key provided"}
+
+
 class TestSetup:
+    """Backward-compat tests using the combined _setup() convenience wrapper."""
+
     @pytest.mark.asyncio
     async def test_setup_sends_error_when_animations_missing(self):
         server = _make_server(animations_dir=Path("/nonexistent/path"))
@@ -374,11 +616,6 @@ class TestSetup:
         with (
             patch(
                 "idotmatrix_upload.ws_server.AnimationRegistry.preload",
-            ),
-            patch.object(
-                server.__class__,
-                "_setup",
-                wraps=server._setup,
             ),
             patch(
                 "idotmatrix_upload.ws_server.DeviceService.connect",

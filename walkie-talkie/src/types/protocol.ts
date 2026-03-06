@@ -39,12 +39,19 @@ export type AudioDoneMessage = {
   type: "audio_done";
 };
 
+/** Send the user's OpenAI API key to the server for session initialisation. */
+export type SetApiKeyMessage = {
+  type: "set_api_key";
+  key: string;
+};
+
 export type ClientMessage =
   | VoiceAudioMessage
   | CommandMessage
   | ConnectDeviceMessage
   | DisconnectMessage
-  | AudioDoneMessage;
+  | AudioDoneMessage
+  | SetApiKeyMessage;
 
 // ---------------------------------------------------------------------------
 // Server → Client
@@ -98,6 +105,12 @@ export type ErrorMessage = {
   text: string;
 };
 
+/** The provided API key was rejected by OpenAI. */
+export type AuthErrorMessage = {
+  type: "auth_error";
+  text: string;
+};
+
 export type ServerMessage =
   | ReadyMessage
   | StatusMessage
@@ -106,7 +119,8 @@ export type ServerMessage =
   | ChatDoneMessage
   | VoiceAudioServerMessage
   | AnimationMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | AuthErrorMessage;
 
 // ---------------------------------------------------------------------------
 // Auxiliary types

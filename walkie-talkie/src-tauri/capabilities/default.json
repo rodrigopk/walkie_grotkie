@@ -9,6 +9,7 @@
     "core:window:allow-close",
     "shell:allow-spawn",
     "shell:allow-kill",
-    "shell:allow-stdin-write"
+    "shell:allow-stdin-write",
+    "store:default"
   ]
 }

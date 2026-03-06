@@ -335,6 +335,95 @@ body,
   letter-spacing: 0.05em;
 }
 
+/* ── Settings gear button ──────────────────────────────────────── */
+.small-btn-settings {
+  background: linear-gradient(to bottom, #2a2a44, #1e1e33);
+  border-color: #111;
+  color: rgba(150, 180, 255, 0.85);
+  cursor: pointer;
+  box-shadow:
+    0 2px 0 #1a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+}
+
+.small-btn-settings:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 #1a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ── Settings view (inside visor) ──────────────────────────────── */
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 4px 0;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-label {
+  color: var(--led-green);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  border-radius: 2px;
+  color: var(--led-green);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  padding: 4px 6px;
+  outline: none;
+}
+
+.settings-input:focus {
+  border-color: var(--led-green);
+  box-shadow: 0 0 4px rgba(57, 255, 20, 0.2);
+}
+
+.settings-input::placeholder {
+  color: rgba(57, 255, 20, 0.3);
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-save-btn {
+  background: linear-gradient(to bottom, #2a4a2a, #1e331e);
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  border-radius: 3px;
+  color: var(--led-green);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  padding: 4px 16px;
+  cursor: pointer;
+}
+
+.settings-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settings-save-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+
 /* ── Pulsing glow animation for recording state ───────────────── */
 @keyframes ptt-pulse {
   0% {

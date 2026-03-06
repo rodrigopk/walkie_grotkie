@@ -1,13 +1,15 @@
 interface SmallButtonsProps {
   onQuit: () => void;
+  onSettings?: () => void;
 }
 
 /**
  * Two rows of small function buttons below the PTT button.
- * All buttons are currently disabled placeholders except the bottom-right
- * quit button, which calls onQuit when clicked.
+ * The bottom-right quit button calls onQuit when clicked.
+ * The second-from-right settings button calls onSettings when clicked.
+ * All other buttons are currently disabled placeholders.
  */
-export default function SmallButtons({ onQuit }: SmallButtonsProps) {
+export default function SmallButtons({ onQuit, onSettings }: SmallButtonsProps) {
   return (
     <div className="device-small-buttons" data-testid="small-buttons">
       <div className="device-small-buttons-row">
@@ -19,7 +21,14 @@ export default function SmallButtons({ onQuit }: SmallButtonsProps) {
       <div className="device-small-buttons-row">
         <button className="small-btn" disabled aria-label="Function 5" />
         <button className="small-btn" disabled aria-label="Function 6" />
-        <button className="small-btn" disabled aria-label="Function 7" />
+        <button
+          className="small-btn small-btn-settings"
+          onClick={onSettings}
+          aria-label="Settings"
+          data-testid="settings-button"
+        >
+          ⚙
+        </button>
         <button
           className="small-btn small-btn-quit"
           onClick={onQuit}

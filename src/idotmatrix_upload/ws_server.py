@@ -13,6 +13,7 @@ Client → Server
   { "type": "command",        "text": "/animation dancing" }
   { "type": "connect_device", "address": "AA:BB:CC:DD:EE:FF" }  # optional
   { "type": "disconnect" }
+  { "type": "set_api_key",    "key": "<OpenAI API key>" }
 
 Server → Client
   { "type": "ready" }
@@ -23,6 +24,7 @@ Server → Client
   { "type": "voice_audio",    "data": "<base64 WAV>" }
   { "type": "animation",      "state": "talking" }
   { "type": "error",          "text": "..." }
+  { "type": "auth_error",     "text": "..." }
 """
 
 from __future__ import annotations
@@ -62,11 +64,14 @@ class GrotWebSocketServer:
     Only one client connection is supported at a time.  If a second client
     connects while one is active, the second connection receives an error and
     is closed immediately.
+
+    The server can start without an API key — in that case it waits for the
+    client to send a ``set_api_key`` message before launching the greeting.
     """
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str = "",
         model: str = "gpt-4o",
         tts_voice: str = "nova",
         animations_dir: Path = Path("grot_animations"),
@@ -116,14 +121,18 @@ class GrotWebSocketServer:
     async def _send_error(self, text: str) -> None:
         await self._send({"type": "error", "text": text})
 
+    async def _send_auth_error(self, text: str) -> None:
+        await self._send({"type": "auth_error", "text": text})
+
     # ------------------------------------------------------------------
     # Setup / teardown
     # ------------------------------------------------------------------
 
-    async def _setup(self) -> bool:
+    async def _setup_ble(self) -> bool:
         """Preload animations and connect to the BLE device.
 
         Returns True on success, False if setup failed (error already sent).
+        No OpenAI key is required for this step.
         """
         await self._send_status("Loading animations...")
         registry = AnimationRegistry(self._animations_dir)
@@ -163,6 +172,14 @@ class GrotWebSocketServer:
         self._controller = AnimationController(
             self._device, registry, on_state_change=_on_state_change
         )
+        return True
+
+    async def _setup_openai(self) -> None:
+        """Build the OpenAI chat session and async client from the stored API key.
+
+        Raises ``openai.AuthenticationError`` if the key is invalid, so the
+        caller can send an ``auth_error`` message instead of crashing.
+        """
         self._session = OpenAIChatSession(
             api_key=self._api_key,
             model=self._model,
@@ -170,6 +187,17 @@ class GrotWebSocketServer:
         )
         self._openai_client = _openai.AsyncOpenAI(api_key=self._api_key)
 
+    async def _setup(self) -> bool:
+        """Convenience wrapper: BLE setup followed by OpenAI setup.
+
+        Used when an API key is available at connection time (e.g. env var).
+        Returns True on success, False if BLE setup failed (error already sent).
+        Raises on OpenAI auth failure — caller must handle.
+        """
+        ok = await self._setup_ble()
+        if not ok:
+            return False
+        await self._setup_openai()
         return True
 
     async def _teardown(self) -> None:
@@ -380,6 +408,38 @@ class GrotWebSocketServer:
             f"Unknown command: {cmd}  (type /help for available commands)"
         )
 
+    async def _handle_set_api_key(self, key: str) -> None:
+        """Accept a new API key from the client and (re)initialise the OpenAI session.
+
+        Also fires the greeting if this is the first key received, or restarts
+        the greeting pipeline if the user is re-keying mid-session.
+        """
+        if not key:
+            await self._send_error("API key cannot be empty.")
+            return
+
+        self._api_key = key
+
+        # Tear down any existing OpenAI session before rebuilding.
+        self._session = None
+        self._openai_client = None
+
+        try:
+            await self._setup_openai()
+        except _openai.AuthenticationError as exc:
+            logger.warning("API key rejected by OpenAI: %s", exc)
+            await self._send_auth_error(f"Invalid API key: {exc}")
+            return
+        except Exception as exc:
+            logger.exception("Unexpected error initialising OpenAI client")
+            await self._send_auth_error(f"OpenAI error: {exc}")
+            return
+
+        await self._send({"type": "ready"})
+        # Run greeting as a background task so the message loop continues
+        # and can handle audio_done while the greeting is in progress.
+        asyncio.create_task(self._send_greeting())
+
     # ------------------------------------------------------------------
     # WebSocket handler
     # ------------------------------------------------------------------
@@ -403,15 +463,18 @@ class GrotWebSocketServer:
         logger.info("Client connected: %s", websocket.remote_address)
 
         try:
-            ok = await self._setup()
+            ok = await self._setup_ble()
             if not ok:
                 return
 
-            await self._send({"type": "ready"})
-            # Run greeting as a background task so the message loop below starts
-            # immediately — this is required for the audio_done signal sent by
-            # the client to be received while the greeting is still in progress.
-            asyncio.create_task(self._send_greeting())
+            if self._api_key:
+                # Key already available (e.g. from env var) — proceed immediately.
+                await self._setup_openai()
+                await self._send({"type": "ready"})
+                asyncio.create_task(self._send_greeting())
+            else:
+                # No key yet — wait for the client to send set_api_key.
+                await self._send_status("Waiting for API key from UI...")
 
             async for raw_msg in websocket:
                 try:
@@ -422,12 +485,20 @@ class GrotWebSocketServer:
 
                 msg_type = msg.get("type")
 
-                if msg_type == "voice_audio":
+                if msg_type == "set_api_key":
+                    await self._handle_set_api_key(msg.get("key", ""))
+
+                elif msg_type == "voice_audio":
+                    if self._session is None:
+                        await self._send_error("No API key set. Please configure one in Settings.")
+                        continue
                     asyncio.create_task(
                         self._handle_voice_audio(msg.get("data", ""))
                     )
 
                 elif msg_type == "command":
+                    if self._controller is None:
+                        continue
                     await self._handle_command(msg.get("text", ""))
 
                 elif msg_type == "audio_done":
@@ -469,7 +540,7 @@ class GrotWebSocketServer:
         logger.info("WebSocket server listening on ws://localhost:%d", self._port)
         print(f"WebSocket server listening on ws://localhost:{self._port}", flush=True)
 
-        async with serve(self._handler, "localhost", self._port):
+        async with serve(self._handler, "localhost", self._port, reuse_address=True):
             try:
                 await asyncio.get_running_loop().create_future()  # run forever
             except (KeyboardInterrupt, asyncio.CancelledError):
