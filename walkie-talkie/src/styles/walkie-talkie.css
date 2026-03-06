@@ -25,6 +25,8 @@
   --button-grey-shadow: #444;
   --small-button-color: #3a3a3a;
   --small-button-border: #222;
+  --pixel-size: 3px;
+  --pixel-border-color: #333;
   font-family: "Courier New", Courier, monospace;
 }
 
@@ -54,13 +56,19 @@ body,
   width: 340px;
   height: 680px;
   background: var(--housing-color);
-  border-radius: 16px 16px 40px 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 0;
   position: relative;
   overflow: hidden;
+  /* 2-step pixel-notch corners via clip-path */
+  clip-path: polygon(
+    10px 0, calc(100% - 10px) 0,
+    100% 10px, 100% calc(100% - 10px),
+    calc(100% - 10px) 100%, 10px 100%,
+    0 calc(100% - 10px), 0 10px
+  );
 }
 
 /* ── Antenna ──────────────────────────────────────────────────── */
@@ -68,7 +76,6 @@ body,
   width: 10px;
   height: 60px;
   background: var(--housing-highlight);
-  border-radius: 4px 4px 0 0;
   position: absolute;
   top: -60px;
   left: 50%;
@@ -96,7 +103,6 @@ body,
 .grille-dot {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
   background: #111;
   pointer-events: none;
 }
@@ -117,12 +123,18 @@ body,
   margin: 10px 12px 14px;
   background: var(--panel-color);
   border: 3px solid var(--panel-border);
-  border-radius: 6px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   padding: 10px;
   gap: 10px;
+  /* 2-step pixel-notch corners */
+  clip-path: polygon(
+    6px 0, calc(100% - 6px) 0,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0 calc(100% - 6px), 0 6px
+  );
 }
 
 /* ── LED Screen ───────────────────────────────────────────────── */
@@ -130,12 +142,18 @@ body,
   flex: 1;
   min-height: 0;
   background: var(--led-bg);
-  border-radius: 4px;
   border: 2px solid #111;
   padding: 10px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 1-step pixel-notch corners */
+  clip-path: polygon(
+    4px 0, calc(100% - 4px) 0,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0 calc(100% - 4px), 0 4px
+  );
 }
 
 /* ── LED Display ──────────────────────────────────────────────── */
@@ -195,7 +213,6 @@ body,
 .ptt-button {
   width: 100%;
   height: 52px;
-  border-radius: 5px;
   border: 2px solid #333;
   cursor: pointer;
   display: flex;
@@ -205,6 +222,13 @@ body,
   transition: transform 60ms ease;
   user-select: none;
   -webkit-user-select: none;
+  /* 1-step pixel-notch corners */
+  clip-path: polygon(
+    4px 0, calc(100% - 4px) 0,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0 calc(100% - 4px), 0 4px
+  );
 }
 
 .ptt-idle {
@@ -253,7 +277,6 @@ body,
 .small-btn {
   width: 32px;
   height: 24px;
-  border-radius: 3px;
   border: 2px solid var(--small-button-border);
   background: var(--small-button-color);
   cursor: default;
@@ -264,6 +287,13 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 1-step pixel-notch corners */
+  clip-path: polygon(
+    3px 0, calc(100% - 3px) 0,
+    100% 3px, 100% calc(100% - 3px),
+    calc(100% - 3px) 100%, 3px 100%,
+    0 calc(100% - 3px), 0 3px
+  );
 }
 
 .small-btn-quit {
@@ -368,12 +398,18 @@ body,
   min-width: 0;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(57, 255, 20, 0.3);
-  border-radius: 2px;
   color: var(--led-green);
   font-family: "Courier New", Courier, monospace;
   font-size: 11px;
   padding: 4px 6px;
   outline: none;
+  /* 1-step pixel-notch corners */
+  clip-path: polygon(
+    2px 0, calc(100% - 2px) 0,
+    100% 2px, 100% calc(100% - 2px),
+    calc(100% - 2px) 100%, 2px 100%,
+    0 calc(100% - 2px), 0 2px
+  );
 }
 
 .settings-input:focus {
@@ -392,12 +428,18 @@ body,
 .settings-save-btn {
   background: linear-gradient(to bottom, #2a4a2a, #1e331e);
   border: 1px solid rgba(57, 255, 20, 0.4);
-  border-radius: 3px;
   color: var(--led-green);
   font-family: "Courier New", Courier, monospace;
   font-size: 11px;
   padding: 4px 16px;
   cursor: pointer;
+  /* 1-step pixel-notch corners */
+  clip-path: polygon(
+    3px 0, calc(100% - 3px) 0,
+    100% 3px, 100% calc(100% - 3px),
+    calc(100% - 3px) 100%, 3px 100%,
+    0 calc(100% - 3px), 0 3px
+  );
 }
 
 .settings-save-btn:disabled {
