@@ -1,5 +1,5 @@
 interface SmallButtonsProps {
-  onQuit: () => void;
+  onRestart?: () => void;
   onHome?: () => void;
   onCycleAnimation?: () => void;
   onSettings?: () => void;
@@ -12,12 +12,12 @@ interface SmallButtonsProps {
  *   ⌂ Home        — navigates back to the main screen
  *   ✦ Anim cycle  — cycles through Grot animations
  *   ⚙ Settings    — opens the settings view
- *   ✕ Quit        — closes the application
+ *   ↻ Restart     — tears down and restarts the BLE + OpenAI session
  *
  * Top row buttons are disabled placeholders.
  */
 export default function SmallButtons({
-  onQuit,
+  onRestart,
   onHome,
   onCycleAnimation,
   onSettings,
@@ -56,12 +56,12 @@ export default function SmallButtons({
           ⚙
         </button>
         <button
-          className="small-btn small-btn-quit"
-          onClick={onQuit}
-          aria-label="Quit application"
-          data-testid="quit-button"
+          className="small-btn small-btn-restart"
+          onClick={onRestart}
+          aria-label="Restart session"
+          data-testid="restart-button"
         >
-          ✕
+          ↻
         </button>
       </div>
     </div>

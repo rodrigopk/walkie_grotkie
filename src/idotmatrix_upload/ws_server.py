@@ -374,7 +374,7 @@ class GrotWebSocketServer:
             logger.exception("Error in voice pipeline")
             await self._send_error(f"Processing error: {exc}")
             if self._controller is not None:
-                await self._controller.transition(AnimationState.IDLE)
+                await self._controller.transition(AnimationState.SURPRISED)
         finally:
             self._processing = False
 
@@ -420,6 +420,38 @@ class GrotWebSocketServer:
             f"Unknown command: {cmd}  (type /help for available commands)"
         )
 
+    async def _handle_restart(self) -> None:
+        """Tear down BLE + OpenAI, reconnect everything, and re-greet.
+
+        Guards against being called mid-voice-pipeline via the ``_processing``
+        flag.  Calls ``_send_greeting_inner`` directly (instead of
+        ``_send_greeting``) because we already hold the flag.
+        """
+        if self._processing:
+            await self._send_status("Please wait — still processing...")
+            return
+
+        self._processing = True
+        try:
+            await self._send_status("Restarting...")
+            await self._teardown()
+
+            ok = await self._setup_ble()
+            if not ok:
+                return
+
+            if self._api_key:
+                await self._setup_openai()
+                await self._send({"type": "ready"})
+                await self._send_greeting_inner()
+            else:
+                await self._send({"type": "ready"})
+        except Exception as exc:
+            logger.exception("Error during restart")
+            await self._send_error(f"Restart failed: {exc}")
+        finally:
+            self._processing = False
+
     async def _handle_set_api_key(self, key: str) -> None:
         """Accept a new API key from the client and (re)initialise the OpenAI session.
 
@@ -441,10 +473,14 @@ class GrotWebSocketServer:
         except _openai.AuthenticationError as exc:
             logger.warning("API key rejected by OpenAI: %s", exc)
             await self._send_auth_error(f"Invalid API key: {exc}")
+            if self._controller is not None:
+                await self._controller.transition(AnimationState.SURPRISED)
             return
         except Exception as exc:
             logger.exception("Unexpected error initialising OpenAI client")
             await self._send_auth_error(f"OpenAI error: {exc}")
+            if self._controller is not None:
+                await self._controller.transition(AnimationState.SURPRISED)
             return
 
         await self._send({"type": "ready"})
@@ -517,13 +553,10 @@ class GrotWebSocketServer:
                     if self._audio_done_event is not None:
                         self._audio_done_event.set()
 
-                elif msg_type == "connect_device":
-                    # Device is already connected at startup; ignore late re-connect requests
-                    await self._send_status(
-                        f"Already connected to {self._device.address or 'device'}."
-                        if self._device
-                        else "Not connected."
-                    )
+                elif msg_type == "restart":
+                    # Run as a task so the message loop stays alive to handle
+                    # audio_done signals that may arrive during teardown.
+                    asyncio.create_task(self._handle_restart())
 
                 elif msg_type == "disconnect":
                     await self._send_status("Disconnecting...")

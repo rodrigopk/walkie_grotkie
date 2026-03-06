@@ -45,13 +45,19 @@ export type SetApiKeyMessage = {
   key: string;
 };
 
+/** Tear down and restart the BLE connection and OpenAI session. */
+export type RestartMessage = {
+  type: "restart";
+};
+
 export type ClientMessage =
   | VoiceAudioMessage
   | CommandMessage
   | ConnectDeviceMessage
   | DisconnectMessage
   | AudioDoneMessage
-  | SetApiKeyMessage;
+  | SetApiKeyMessage
+  | RestartMessage;
 
 // ---------------------------------------------------------------------------
 // Server → Client
@@ -143,7 +149,8 @@ export type AnimationState =
   | "dancing"
   | "dancing_alt"
   | "dancing_flip"
-  | "sleeping";
+  | "sleeping"
+  | "surprised";
 
 /** Discriminated union type guard for ServerMessage. */
 export function isServerMessage(value: unknown): value is ServerMessage {

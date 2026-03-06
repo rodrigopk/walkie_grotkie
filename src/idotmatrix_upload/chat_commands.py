@@ -33,12 +33,13 @@ IDLE_REVERT_DELAY: float = 2.0
 
 # Maps the string names used in [mood:...] tags and /animation commands to states.
 ANIMATION_NAMES: dict[str, AnimationState] = {
-    "idle":     AnimationState.IDLE,
-    "thinking": AnimationState.THINKING,
-    "talking":  AnimationState.TALKING,
-    "excited":  AnimationState.EXCITED,
-    "dancing":  AnimationState.DANCING,
-    "sleeping": AnimationState.SLEEPING,
+    "idle":      AnimationState.IDLE,
+    "thinking":  AnimationState.THINKING,
+    "talking":   AnimationState.TALKING,
+    "excited":   AnimationState.EXCITED,
+    "dancing":   AnimationState.DANCING,
+    "sleeping":  AnimationState.SLEEPING,
+    "surprised": AnimationState.SURPRISED,
 }
 
 EXIT_COMMANDS: frozenset[str] = frozenset({"/exit"})

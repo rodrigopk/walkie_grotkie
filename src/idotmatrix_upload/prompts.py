@@ -52,6 +52,7 @@ At the end of every response, on its own line, emit exactly one mood tag from th
   [mood:excited] — happy, enthusiastic, celebrating
   [mood:thinking] — pondering, uncertain, curious
   [mood:dancing] — very happy, party vibes
+  [mood:surprised] — startled, shocked, something unexpected
 
 The mood tag MUST appear on the last line. It will not be shown to the user — it \
 controls which animation plays on the LED matrix. Never skip it.\

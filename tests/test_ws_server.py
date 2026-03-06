@@ -199,6 +199,14 @@ class TestHandleCommand:
         assert "Usage" in sent["text"]
 
     @pytest.mark.asyncio
+    async def test_animation_command_surprised(self):
+        server, mock_ws = self._server_with_controller()
+        from idotmatrix_upload.animations import AnimationState
+        await server._handle_command("/animation surprised")
+        first_call_state = server._controller.transition.call_args_list[0][0][0]
+        assert first_call_state == AnimationState.SURPRISED
+
+    @pytest.mark.asyncio
     async def test_unknown_command(self):
         server, mock_ws = self._server_with_controller()
         await server._handle_command("/frobnicate")
@@ -331,6 +339,21 @@ class TestHandleVoiceAudio:
         assert "chat_token" in types
         assert "chat_done" in types
         assert "voice_audio" in types
+
+    @pytest.mark.asyncio
+    async def test_pipeline_error_transitions_to_surprised(self):
+        server, mock_ws, mock_controller, mock_session = self._server_with_mocks()
+
+        with patch(
+            "idotmatrix_upload.ws_server.transcribe",
+            new=AsyncMock(side_effect=RuntimeError("boom")),
+        ):
+            await server._handle_voice_audio(_b64_wav())
+
+        from idotmatrix_upload.animations import AnimationState
+        mock_controller.transition.assert_called()
+        last_state = mock_controller.transition.call_args_list[-1][0][0]
+        assert last_state == AnimationState.SURPRISED
 
     @pytest.mark.asyncio
     async def test_voice_audio_response_is_base64_encoded(self):
@@ -582,6 +605,29 @@ class TestSetApiKey:
         assert any(m["type"] == "ready" for m in calls)
 
     @pytest.mark.asyncio
+    async def test_auth_error_transitions_to_surprised(self):
+        server, mock_ws = self._server_with_controller()
+        import openai as _openai_mod
+
+        with patch.object(
+            server,
+            "_setup_openai",
+            new=AsyncMock(
+                side_effect=_openai_mod.AuthenticationError(
+                    message="Invalid API key",
+                    response=MagicMock(status_code=401),
+                    body=None,
+                )
+            ),
+        ):
+            await server._handle_set_api_key("sk-bad-key")
+
+        from idotmatrix_upload.animations import AnimationState
+        server._controller.transition.assert_called()
+        last_state = server._controller.transition.call_args_list[-1][0][0]
+        assert last_state == AnimationState.SURPRISED
+
+    @pytest.mark.asyncio
     async def test_send_auth_error_helper(self):
         server = _make_server()
         mock_ws = AsyncMock()
@@ -685,3 +731,119 @@ class TestSetup:
         assert server._controller is None
         assert server._session is None
         assert server._openai_client is None
+
+
+# ---------------------------------------------------------------------------
+# TestHandleRestart
+# ---------------------------------------------------------------------------
+
+
+class TestHandleRestart:
+    """Tests for GrotWebSocketServer._handle_restart()."""
+
+    def _server_with_mocks(
+        self,
+    ) -> tuple[GrotWebSocketServer, AsyncMock]:
+        server = _make_server()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+
+        mock_controller = MagicMock()
+        mock_controller.transition = AsyncMock()
+        mock_controller.await_current = AsyncMock()
+        mock_controller.shutdown = AsyncMock()
+        server._controller = mock_controller
+
+        mock_session = MagicMock()
+        server._session = mock_session
+
+        mock_device = MagicMock()
+        mock_device.disconnect = AsyncMock()
+        mock_device.address = "AA:BB:CC:DD:EE:FF"
+        server._device = mock_device
+
+        return server, mock_ws
+
+    @pytest.mark.asyncio
+    async def test_restart_tears_down_and_reconnects(self):
+        server, mock_ws = self._server_with_mocks()
+        with (
+            patch.object(server, "_teardown", new=AsyncMock()) as mock_teardown,
+            patch.object(server, "_setup_ble", new=AsyncMock(return_value=True)),
+            patch.object(server, "_setup_openai", new=AsyncMock()),
+            patch.object(server, "_send_greeting_inner", new=AsyncMock()),
+        ):
+            await server._handle_restart()
+
+        mock_teardown.assert_called_once()
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(
+            m["type"] == "status" and "Restarting" in m["text"] for m in calls
+        )
+        assert any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_restart_rejected_while_processing(self):
+        server, mock_ws = self._server_with_mocks()
+        server._processing = True
+        await server._handle_restart()
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any("wait" in m.get("text", "").lower() for m in calls)
+        # No teardown, no ready
+        assert not any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_restart_handles_ble_failure(self):
+        server, mock_ws = self._server_with_mocks()
+        with (
+            patch.object(server, "_teardown", new=AsyncMock()),
+            patch.object(server, "_setup_ble", new=AsyncMock(return_value=False)),
+        ):
+            await server._handle_restart()
+
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert not any(m["type"] == "ready" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_restart_clears_processing_flag_on_success(self):
+        server, _ = self._server_with_mocks()
+        with (
+            patch.object(server, "_teardown", new=AsyncMock()),
+            patch.object(server, "_setup_ble", new=AsyncMock(return_value=True)),
+            patch.object(server, "_setup_openai", new=AsyncMock()),
+            patch.object(server, "_send_greeting_inner", new=AsyncMock()),
+        ):
+            await server._handle_restart()
+
+        assert server._processing is False
+
+    @pytest.mark.asyncio
+    async def test_restart_clears_processing_flag_on_exception(self):
+        server, mock_ws = self._server_with_mocks()
+        with (
+            patch.object(server, "_teardown", new=AsyncMock()),
+            patch.object(
+                server, "_setup_ble", new=AsyncMock(side_effect=RuntimeError("boom"))
+            ),
+        ):
+            await server._handle_restart()
+
+        assert server._processing is False
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "error" for m in calls)
+
+    @pytest.mark.asyncio
+    async def test_restart_without_api_key_sends_ready_without_greeting(self):
+        server = _make_server_no_key()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+        with (
+            patch.object(server, "_teardown", new=AsyncMock()),
+            patch.object(server, "_setup_ble", new=AsyncMock(return_value=True)),
+            patch.object(server, "_send_greeting_inner", new=AsyncMock()) as mock_greet,
+        ):
+            await server._handle_restart()
+
+        mock_greet.assert_not_called()
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "ready" for m in calls)

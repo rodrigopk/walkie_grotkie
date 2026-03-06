@@ -73,6 +73,11 @@ describe("parseServerMessage", () => {
     const msg = parseServerMessage('{"type":"ble_error","text":"Connection failed"}');
     expect(msg).toEqual({ type: "ble_error", text: "Connection failed" } satisfies ServerMessage);
   });
+
+  it("parses an animation message with surprised state", () => {
+    const msg = parseServerMessage('{"type":"animation","state":"surprised"}');
+    expect(msg).toEqual({ type: "animation", state: "surprised" } satisfies ServerMessage);
+  });
 });
 
 describe("serialiseMessage", () => {
@@ -116,9 +121,14 @@ describe("serialiseMessage", () => {
       { type: "connect_device" },
       { type: "disconnect" },
       { type: "set_api_key", key: "sk-test" },
+      { type: "restart" },
     ];
     for (const msg of messages) {
       expect(() => JSON.parse(serialiseMessage(msg))).not.toThrow();
     }
+  });
+
+  it("serialises a restart message", () => {
+    expect(serialiseMessage({ type: "restart" })).toBe('{"type":"restart"}');
   });
 });

@@ -45,11 +45,12 @@ def _is_dance_request(text: str) -> bool:
 
 
 _MOOD_MAP: dict[str, AnimationState] = {
-    "idle": AnimationState.IDLE,
-    "talking": AnimationState.TALKING,
-    "excited": AnimationState.EXCITED,
-    "thinking": AnimationState.THINKING,
-    "dancing": AnimationState.DANCING,
+    "idle":      AnimationState.IDLE,
+    "talking":   AnimationState.TALKING,
+    "excited":   AnimationState.EXCITED,
+    "thinking":  AnimationState.THINKING,
+    "dancing":   AnimationState.DANCING,
+    "surprised": AnimationState.SURPRISED,
 }
 
 

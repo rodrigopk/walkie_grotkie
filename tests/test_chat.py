@@ -32,6 +32,9 @@ class TestExtractMood:
     def test_dancing(self):
         assert extract_mood("Party!\n[mood:dancing]") == AnimationState.DANCING
 
+    def test_surprised(self):
+        assert extract_mood("What?!\n[mood:surprised]") == AnimationState.SURPRISED
+
     def test_missing_tag_defaults_to_idle(self):
         assert extract_mood("No mood tag here.") == AnimationState.IDLE
 

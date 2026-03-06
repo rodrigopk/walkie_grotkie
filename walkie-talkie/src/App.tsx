@@ -14,7 +14,7 @@ import type { ServerMessage } from "./types/protocol";
 
 const WS_URL = "ws://localhost:8765";
 
-const CYCLE_ANIMATIONS = ["thinking", "talking", "excited", "dancing"] as const;
+const CYCLE_ANIMATIONS = ["thinking", "talking", "excited", "dancing", "surprised"] as const;
 
 let _lineId = 0;
 function makeId() {
@@ -77,6 +77,13 @@ export default function App() {
     setLines((prev) => [...prev, { id: makeId(), text, variant }]);
   }
 
+  function resetChatState() {
+    setLines([]);
+    setButtonState("disabled");
+    tokenBufferRef.current = "";
+    pendingGrotTextRef.current = "";
+  }
+
   // ── Read stored key on mount ───────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -113,10 +120,7 @@ export default function App() {
     }
 
     // Reset chat state before re-validating (handles re-keying mid-session).
-    setLines([]);
-    setButtonState("disabled");
-    tokenBufferRef.current = "";
-    pendingGrotTextRef.current = "";
+    resetChatState();
 
     let cancelled = false;
     (async () => {
@@ -272,6 +276,13 @@ export default function App() {
     setAppPhase(apiKeyRef.current ? "ready" : "needs_key");
   }, []);
 
+  const handleRestart = useCallback(() => {
+    resetChatState();
+    setAppPhase("loading");
+    ws.send({ type: "restart" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ws]);
+
   // ── Animation cycle handler ───────────────────────────────────
   const handleCycleAnimation = useCallback(() => {
     const name = CYCLE_ANIMATIONS[animCycleRef.current];
@@ -318,8 +329,8 @@ export default function App() {
       case "auth_error":
         return (
           <StatusScreen
-            gifSrc="/grot-sleep.gif"
-            gifAlt="Grot sleeping"
+            gifSrc="/grot-error.gif"
+            gifAlt="Grot surprised"
             lines={[
               { text: "Invalid API key", error: true },
               { text: "Please update in Settings" },
@@ -356,7 +367,7 @@ export default function App() {
   // ── Microphone not available ──────────────────────────────────
   if (!recorder.isSupported) {
     return (
-      <WalkieTalkie>
+      <WalkieTalkie onQuit={() => void handleQuit()}>
         <LEDDisplay
           lines={[
             {
@@ -374,7 +385,7 @@ export default function App() {
           />
         </div>
         <SmallButtons
-          onQuit={() => void handleQuit()}
+          onRestart={handleRestart}
           onHome={handleGoHome}
           onCycleAnimation={handleCycleAnimation}
           onSettings={handleOpenSettings}
@@ -384,7 +395,7 @@ export default function App() {
   }
 
   return (
-    <WalkieTalkie>
+    <WalkieTalkie onQuit={() => void handleQuit()}>
       {renderScreen()}
       <div className="device-button-area">
         <PushToTalkButton
@@ -394,7 +405,7 @@ export default function App() {
         />
       </div>
       <SmallButtons
-        onQuit={() => void handleQuit()}
+        onRestart={handleRestart}
         onHome={handleGoHome}
         onCycleAnimation={handleCycleAnimation}
         onSettings={handleOpenSettings}

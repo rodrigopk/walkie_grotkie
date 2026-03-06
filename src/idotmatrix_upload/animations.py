@@ -34,6 +34,7 @@ class AnimationState(Enum):
     DANCING_ALT = auto()
     DANCING_FLIP = auto()
     SLEEPING = auto()
+    SURPRISED = auto()
 
 ANIMATION_MAP: dict[AnimationState, str] = {
     AnimationState.IDLE:         "grot-idle-3/grot-idle-3.gif",
@@ -46,6 +47,7 @@ ANIMATION_MAP: dict[AnimationState, str] = {
     AnimationState.DANCING_ALT:  "grot-dance/grot-dance.gif",
     AnimationState.DANCING_FLIP: "grot-flip/grot-flip.gif",
     AnimationState.SLEEPING:     "grot-sleeping/grot-sleeping.gif",
+    AnimationState.SURPRISED:    "grot-error/grot-error.gif",
 }
 
 _RANDOM_VARIANT_STATES = frozenset({AnimationState.TALKING, AnimationState.DANCING})
