@@ -50,6 +50,12 @@ export type RestartMessage = {
   type: "restart";
 };
 
+/** Tell the server to change the TTS voice for future responses. */
+export type SetVoiceMessage = {
+  type: "set_voice";
+  voice: string;
+};
+
 export type ClientMessage =
   | VoiceAudioMessage
   | CommandMessage
@@ -57,7 +63,8 @@ export type ClientMessage =
   | DisconnectMessage
   | AudioDoneMessage
   | SetApiKeyMessage
-  | RestartMessage;
+  | RestartMessage
+  | SetVoiceMessage;
 
 // ---------------------------------------------------------------------------
 // Server → Client

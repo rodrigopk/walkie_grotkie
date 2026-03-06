@@ -66,6 +66,16 @@ describe("SettingsView", () => {
     expect(screen.getByTestId("settings-view")).toBeInTheDocument();
   });
 
+  it("renders the screen title header", () => {
+    render(<SettingsView onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByTestId("screen-title")).toBeInTheDocument();
+  });
+
+  it("screen title reads 'Settings'", () => {
+    render(<SettingsView onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByTestId("screen-title")).toHaveTextContent("Settings");
+  });
+
   it("renders an OpenAI API Key label", () => {
     render(<SettingsView onSave={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText(/OpenAI API Key/i)).toBeInTheDocument();

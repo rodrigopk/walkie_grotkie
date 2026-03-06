@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FaPowerOff } from "react-icons/fa6";
 
 interface WalkieTalkieProps {
   children: ReactNode;
@@ -37,7 +38,7 @@ export default function WalkieTalkie({ children, onQuit }: WalkieTalkieProps) {
               aria-label="Turn off"
               data-testid="off-button"
             >
-              OFF
+              <FaPowerOff />
             </button>
             <div className="grille-dots-container">
               <div className="grille-dots" data-tauri-drag-region>

@@ -452,6 +452,29 @@ class GrotWebSocketServer:
         finally:
             self._processing = False
 
+    async def _handle_set_voice(self, voice: str) -> None:
+        """Change the TTS voice used for future responses.
+
+        Validates the voice name against the canonical list from openai_chat and
+        updates ``self._tts_voice`` in place — no session restart required.
+        """
+        from .openai_chat import TTS_VOICES
+
+        if not voice:
+            await self._send_error("Voice name cannot be empty.")
+            return
+
+        if voice not in TTS_VOICES:
+            await self._send_error(
+                f"Unknown voice '{voice}'. "
+                f"Valid voices: {', '.join(sorted(TTS_VOICES))}"
+            )
+            return
+
+        self._tts_voice = voice
+        logger.info("TTS voice changed to %r", voice)
+        await self._send_status(f"Voice changed to {voice}")
+
     async def _handle_set_api_key(self, key: str) -> None:
         """Accept a new API key from the client and (re)initialise the OpenAI session.
 
@@ -557,6 +580,9 @@ class GrotWebSocketServer:
                     # Run as a task so the message loop stays alive to handle
                     # audio_done signals that may arrive during teardown.
                     asyncio.create_task(self._handle_restart())
+
+                elif msg_type == "set_voice":
+                    await self._handle_set_voice(msg.get("voice", ""))
 
                 elif msg_type == "disconnect":
                     await self._send_status("Disconnecting...")

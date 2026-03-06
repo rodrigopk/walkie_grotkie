@@ -20,7 +20,7 @@ describe("WalkieTalkie", () => {
   it("renders the OFF button when onQuit is provided", () => {
     render(<WalkieTalkie onQuit={vi.fn()}><div /></WalkieTalkie>);
     expect(screen.getByTestId("off-button")).toBeInTheDocument();
-    expect(screen.getByTestId("off-button")).toHaveTextContent("OFF");
+    expect(screen.getByTestId("off-button").querySelector("svg")).toBeTruthy();
   });
 
   it("calls onQuit when the OFF button is clicked", () => {

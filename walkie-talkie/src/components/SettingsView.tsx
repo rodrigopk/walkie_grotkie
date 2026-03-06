@@ -24,6 +24,7 @@ export default function SettingsView({
 
   return (
     <div className="device-screen" data-testid="settings-view">
+      <div className="screen-header" data-testid="screen-title">Settings</div>
       <div className="settings-view">
         <div className="settings-field">
           <label className="settings-label" htmlFor="api-key-input">

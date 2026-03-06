@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import SmallButtons from "../components/SmallButtons";
 
 describe("SmallButtons", () => {
+  // ── Restart ──────────────────────────────────────────────────
   it("renders the restart button", () => {
     render(<SmallButtons onRestart={vi.fn()} />);
     expect(screen.getByTestId("restart-button")).toBeInTheDocument();
@@ -23,6 +24,7 @@ describe("SmallButtons", () => {
     );
   });
 
+  // ── Settings ─────────────────────────────────────────────────
   it("renders the settings button when onSettings is provided", () => {
     render(<SmallButtons onRestart={vi.fn()} onSettings={vi.fn()} />);
     expect(screen.getByTestId("settings-button")).toBeInTheDocument();
@@ -43,6 +45,7 @@ describe("SmallButtons", () => {
     );
   });
 
+  // ── Home ─────────────────────────────────────────────────────
   it("renders the home button when onHome is provided", () => {
     render(<SmallButtons onRestart={vi.fn()} onHome={vi.fn()} />);
     expect(screen.getByTestId("home-button")).toBeInTheDocument();
@@ -63,6 +66,7 @@ describe("SmallButtons", () => {
     );
   });
 
+  // ── Cycle animation ───────────────────────────────────────────
   it("renders the cycle animation button when onCycleAnimation is provided", () => {
     render(<SmallButtons onRestart={vi.fn()} onCycleAnimation={vi.fn()} />);
     expect(screen.getByTestId("cycle-animation-button")).toBeInTheDocument();
@@ -83,26 +87,77 @@ describe("SmallButtons", () => {
     );
   });
 
-  it("renders exactly 2 disabled placeholder buttons", () => {
+  // ── Help ──────────────────────────────────────────────────────
+  it("renders the help button when onHelp is provided", () => {
+    render(<SmallButtons onRestart={vi.fn()} onHelp={vi.fn()} />);
+    expect(screen.getByTestId("help-button")).toBeInTheDocument();
+  });
+
+  it("calls onHelp when the help button is clicked", () => {
+    const onHelp = vi.fn();
+    render(<SmallButtons onRestart={vi.fn()} onHelp={onHelp} />);
+    fireEvent.click(screen.getByTestId("help-button"));
+    expect(onHelp).toHaveBeenCalledOnce();
+  });
+
+  it("help button has the correct aria-label", () => {
+    render(<SmallButtons onRestart={vi.fn()} onHelp={vi.fn()} />);
+    expect(screen.getByTestId("help-button")).toHaveAttribute(
+      "aria-label",
+      "Help"
+    );
+  });
+
+  // ── Voice ─────────────────────────────────────────────────────
+  it("renders the voice button when onVoice is provided", () => {
+    render(<SmallButtons onRestart={vi.fn()} onVoice={vi.fn()} />);
+    expect(screen.getByTestId("voice-button")).toBeInTheDocument();
+  });
+
+  it("calls onVoice when the voice button is clicked", () => {
+    const onVoice = vi.fn();
+    render(<SmallButtons onRestart={vi.fn()} onVoice={onVoice} />);
+    fireEvent.click(screen.getByTestId("voice-button"));
+    expect(onVoice).toHaveBeenCalledOnce();
+  });
+
+  it("voice button has the correct aria-label", () => {
+    render(<SmallButtons onRestart={vi.fn()} onVoice={vi.fn()} />);
+    expect(screen.getByTestId("voice-button")).toHaveAttribute(
+      "aria-label",
+      "Voice"
+    );
+  });
+
+  // ── Layout ────────────────────────────────────────────────────
+  it("renders exactly 6 buttons total", () => {
     render(
       <SmallButtons
         onRestart={vi.fn()}
         onHome={vi.fn()}
         onCycleAnimation={vi.fn()}
         onSettings={vi.fn()}
+        onHelp={vi.fn()}
+        onVoice={vi.fn()}
+      />
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(6);
+  });
+
+  it("renders no disabled buttons when all handlers are provided", () => {
+    render(
+      <SmallButtons
+        onRestart={vi.fn()}
+        onHome={vi.fn()}
+        onCycleAnimation={vi.fn()}
+        onSettings={vi.fn()}
+        onHelp={vi.fn()}
+        onVoice={vi.fn()}
       />
     );
     const disabled = screen
       .getAllByRole("button")
       .filter((btn) => btn.hasAttribute("disabled"));
-    expect(disabled).toHaveLength(2);
-  });
-
-  it("does not call onRestart when a disabled placeholder is clicked", () => {
-    const onRestart = vi.fn();
-    render(<SmallButtons onRestart={onRestart} />);
-    const placeholder = screen.getByLabelText("Function 5");
-    fireEvent.click(placeholder);
-    expect(onRestart).not.toHaveBeenCalled();
+    expect(disabled).toHaveLength(0);
   });
 });

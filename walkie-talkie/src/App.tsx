@@ -5,6 +5,8 @@ import WalkieTalkie from "./components/WalkieTalkie";
 import LEDDisplay, { type DisplayLine } from "./components/LEDDisplay";
 import SettingsView from "./components/SettingsView";
 import StatusScreen from "./components/StatusScreen";
+import HelpView from "./components/HelpView";
+import VoiceView, { type VoiceName } from "./components/VoiceView";
 import PushToTalkButton, { type ButtonState } from "./components/PushToTalkButton";
 import SmallButtons from "./components/SmallButtons";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -13,6 +15,7 @@ import { playAudioFromBase64 } from "./utils/audio";
 import type { ServerMessage } from "./types/protocol";
 
 const WS_URL = "ws://localhost:8765";
+const DEFAULT_VOICE: VoiceName = "nova";
 
 const CYCLE_ANIMATIONS = ["thinking", "talking", "excited", "dancing", "surprised"] as const;
 
@@ -37,6 +40,47 @@ async function validateOpenAIKey(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Fetch a short TTS preview clip for the given voice directly from OpenAI.
+ * Converts the MP3 response to base64 using a chunked loop to avoid
+ * stack overflows on larger buffers.
+ */
+async function fetchVoicePreview(
+  voice: string,
+  apiKey: string,
+  onVoiceReady?: () => void,
+): Promise<void> {
+  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      voice,
+      input: `This is Grot using ${voice}'s voice.`,
+      response_format: "mp3",
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`TTS preview failed: ${res.status}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  // Audio is fully buffered — notify caller before playback starts.
+  onVoiceReady?.();
+
+  await playAudioFromBase64(btoa(binary));
+}
+
 type AppPhase =
   | "checking"   // reading the Tauri store on mount
   | "needs_key"  // no key found → sleeping grot
@@ -45,7 +89,9 @@ type AppPhase =
   | "loading"    // key valid, waiting for first voice_audio greeting
   | "ready"      // chat active
   | "auth_error" // key rejected by OpenAI
-  | "ble_error"; // BLE device connection failed
+  | "ble_error"  // BLE device connection failed
+  | "help"       // help screen
+  | "voice";     // voice picker screen
 
 export default function App() {
   const recorder = useAudioRecorder();
@@ -54,6 +100,7 @@ export default function App() {
   const [buttonState, setButtonState] = useState<ButtonState>("disabled");
   const [appPhase, setAppPhase] = useState<AppPhase>("checking");
   const [apiKey, setApiKey] = useState<string>("");
+  const [ttsVoice, setTtsVoice] = useState<VoiceName>(DEFAULT_VOICE);
 
   const storeRef = useRef<Store | null>(null);
 
@@ -70,6 +117,10 @@ export default function App() {
   const apiKeyRef = useRef<string>("");
   apiKeyRef.current = apiKey;
 
+  // Keep ttsVoice accessible in the reconnect effect without stale closure.
+  const ttsVoiceRef = useRef<VoiceName>(DEFAULT_VOICE);
+  ttsVoiceRef.current = ttsVoice;
+
   // Tracks which animation is next in the cycle (avoids re-creating the callback on each advance).
   const animCycleRef = useRef(0);
 
@@ -84,14 +135,17 @@ export default function App() {
     pendingGrotTextRef.current = "";
   }
 
-  // ── Read stored key on mount ───────────────────────────────────
+  // ── Read stored key and voice on mount ────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const store = await load("settings.json", { autoSave: true });
+      const store = await load("settings.json", { defaults: {}, autoSave: true });
       storeRef.current = store;
       const stored = await store.get<string>("openai_api_key");
+      const storedVoice = await store.get<string>("tts_voice");
       if (cancelled) return;
+
+      if (storedVoice) setTtsVoice(storedVoice as VoiceName);
 
       if (stored) {
         setApiKey(stored);
@@ -214,11 +268,8 @@ export default function App() {
   wsSendRef.current = ws.send;
 
   // ── Map WebSocket connection status to button state ───────────
-  // Also re-send the API key when the WebSocket reconnects after the initial
-  // setup, since the new server connection doesn't have the key yet.
-  // We track "has ever connected" instead of prev-status because React may
-  // render intermediate "connecting" state between "disconnected" and
-  // "connected", making prev-status unreliable for reconnect detection.
+  // Also re-send the API key and voice when the WebSocket reconnects after
+  // the initial setup, since the new server connection has no state yet.
   const hasConnectedRef = useRef(false);
   useEffect(() => {
     if (
@@ -232,6 +283,7 @@ export default function App() {
     if (ws.status === "connected") {
       if (hasConnectedRef.current && apiKeyRef.current) {
         ws.send({ type: "set_api_key", key: apiKeyRef.current });
+        ws.send({ type: "set_voice", voice: ttsVoiceRef.current });
       }
       hasConnectedRef.current = true;
     }
@@ -291,6 +343,26 @@ export default function App() {
     addLine(`[animation: ${name}]`, "system");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws]);
+
+  // ── Help / Voice handlers ─────────────────────────────────────
+  const handleOpenHelp = useCallback(() => {
+    setAppPhase("help");
+  }, []);
+
+  const handleOpenVoice = useCallback(() => {
+    setAppPhase("voice");
+  }, []);
+
+  const handleSelectVoice = useCallback(
+    async (voice: VoiceName) => {
+      setTtsVoice(voice);
+      if (storeRef.current) {
+        await storeRef.current.set("tts_voice", voice);
+      }
+      ws.send({ type: "set_voice", voice });
+    },
+    [ws],
+  );
 
   // ── Visor routing ─────────────────────────────────────────────
   function renderScreen() {
@@ -359,10 +431,41 @@ export default function App() {
           />
         );
 
+      case "help":
+        return <HelpView />;
+
+      case "voice":
+        return (
+          <VoiceView
+            currentVoice={ttsVoice}
+            onSelect={(v) => void handleSelectVoice(v)}
+            previewVoice={async (v) => {
+              try {
+                await fetchVoicePreview(v, apiKeyRef.current, () => {
+                  ws.send({ type: "command", text: "/animation talking" });
+                });
+              } finally {
+                ws.send({ type: "command", text: "/animation idle" });
+              }
+            }}
+          />
+        );
+
       case "ready":
         return <LEDDisplay lines={lines} />;
     }
   }
+
+  const smallButtons = (
+    <SmallButtons
+      onRestart={handleRestart}
+      onHome={handleGoHome}
+      onCycleAnimation={handleCycleAnimation}
+      onSettings={handleOpenSettings}
+      onHelp={handleOpenHelp}
+      onVoice={handleOpenVoice}
+    />
+  );
 
   // ── Microphone not available ──────────────────────────────────
   if (!recorder.isSupported) {
@@ -385,12 +488,7 @@ export default function App() {
               onPressEnd={() => void 0}
             />
           </div>
-          <SmallButtons
-            onRestart={handleRestart}
-            onHome={handleGoHome}
-            onCycleAnimation={handleCycleAnimation}
-            onSettings={handleOpenSettings}
-          />
+          {smallButtons}
         </div>
       </WalkieTalkie>
     );
@@ -407,12 +505,7 @@ export default function App() {
             onPressEnd={() => void handlePressEnd()}
           />
         </div>
-        <SmallButtons
-          onRestart={handleRestart}
-          onHome={handleGoHome}
-          onCycleAnimation={handleCycleAnimation}
-          onSettings={handleOpenSettings}
-        />
+        {smallButtons}
       </div>
     </WalkieTalkie>
   );
