@@ -385,7 +385,7 @@ class TestSetupBle:
         assert any(m["type"] == "error" for m in calls)
 
     @pytest.mark.asyncio
-    async def test_setup_ble_sends_error_when_ble_fails(self):
+    async def test_setup_ble_sends_ble_error_when_ble_fails(self):
         server = _make_server()
         mock_ws = AsyncMock()
         server._client = mock_ws
@@ -406,6 +406,9 @@ class TestSetupBle:
             result = await server._setup_ble()
 
         assert result is False
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "ble_error" for m in calls)
+        assert not any(m["type"] == "error" for m in calls)
 
     @pytest.mark.asyncio
     async def test_setup_ble_does_not_require_api_key(self):
@@ -587,6 +590,15 @@ class TestSetApiKey:
         payload = json.loads(mock_ws.send.call_args[0][0])
         assert payload == {"type": "auth_error", "text": "Invalid key provided"}
 
+    @pytest.mark.asyncio
+    async def test_send_ble_error_helper(self):
+        server = _make_server()
+        mock_ws = AsyncMock()
+        server._client = mock_ws
+        await server._send_ble_error("Device not found")
+        payload = json.loads(mock_ws.send.call_args[0][0])
+        assert payload == {"type": "ble_error", "text": "Device not found"}
+
 
 class TestSetup:
     """Backward-compat tests using the combined _setup() convenience wrapper."""
@@ -608,7 +620,7 @@ class TestSetup:
         assert any(m["type"] == "error" for m in calls)
 
     @pytest.mark.asyncio
-    async def test_setup_sends_error_when_ble_fails(self):
+    async def test_setup_sends_ble_error_when_ble_fails(self):
         server = _make_server()
         mock_ws = AsyncMock()
         server._client = mock_ws
@@ -629,6 +641,8 @@ class TestSetup:
             result = await server._setup()
 
         assert result is False
+        calls = [json.loads(c[0][0]) for c in mock_ws.send.call_args_list]
+        assert any(m["type"] == "ble_error" for m in calls)
 
     @pytest.mark.asyncio
     async def test_teardown_calls_play_sleeping(self):

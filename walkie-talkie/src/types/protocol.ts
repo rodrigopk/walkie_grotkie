@@ -111,6 +111,12 @@ export type AuthErrorMessage = {
   text: string;
 };
 
+/** The BLE device connection failed. */
+export type BleErrorMessage = {
+  type: "ble_error";
+  text: string;
+};
+
 export type ServerMessage =
   | ReadyMessage
   | StatusMessage
@@ -120,7 +126,8 @@ export type ServerMessage =
   | VoiceAudioServerMessage
   | AnimationMessage
   | ErrorMessage
-  | AuthErrorMessage;
+  | AuthErrorMessage
+  | BleErrorMessage;
 
 // ---------------------------------------------------------------------------
 // Auxiliary types

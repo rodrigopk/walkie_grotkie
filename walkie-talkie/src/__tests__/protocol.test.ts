@@ -13,6 +13,7 @@ describe("isServerMessage", () => {
     expect(isServerMessage({ type: "status", text: "hello" })).toBe(true);
     expect(isServerMessage({ type: "animation", state: "talking" })).toBe(true);
     expect(isServerMessage({ type: "auth_error", text: "Invalid key" })).toBe(true);
+    expect(isServerMessage({ type: "ble_error", text: "No device" })).toBe(true);
   });
 
   it("returns false for null", () => {
@@ -66,6 +67,11 @@ describe("parseServerMessage", () => {
   it("parses an auth_error message", () => {
     const msg = parseServerMessage('{"type":"auth_error","text":"Invalid key"}');
     expect(msg).toEqual({ type: "auth_error", text: "Invalid key" } satisfies ServerMessage);
+  });
+
+  it("parses a ble_error message", () => {
+    const msg = parseServerMessage('{"type":"ble_error","text":"Connection failed"}');
+    expect(msg).toEqual({ type: "ble_error", text: "Connection failed" } satisfies ServerMessage);
   });
 });
 

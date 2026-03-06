@@ -25,6 +25,7 @@ Server → Client
   { "type": "animation",      "state": "talking" }
   { "type": "error",          "text": "..." }
   { "type": "auth_error",     "text": "..." }
+  { "type": "ble_error",      "text": "..." }
 """
 
 from __future__ import annotations
@@ -124,6 +125,9 @@ class GrotWebSocketServer:
     async def _send_auth_error(self, text: str) -> None:
         await self._send({"type": "auth_error", "text": text})
 
+    async def _send_ble_error(self, text: str) -> None:
+        await self._send({"type": "ble_error", "text": text})
+
     # ------------------------------------------------------------------
     # Setup / teardown
     # ------------------------------------------------------------------
@@ -155,7 +159,7 @@ class GrotWebSocketServer:
         try:
             await self._device.connect()
         except Exception as exc:
-            await self._send_error(
+            await self._send_ble_error(
                 f"Could not connect to device: {exc}. "
                 "Make sure the device is powered on and within BLE range."
             )

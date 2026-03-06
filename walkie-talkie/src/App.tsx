@@ -4,6 +4,7 @@ import { load, type Store } from "@tauri-apps/plugin-store";
 import WalkieTalkie from "./components/WalkieTalkie";
 import LEDDisplay, { type DisplayLine } from "./components/LEDDisplay";
 import SettingsView from "./components/SettingsView";
+import StatusScreen from "./components/StatusScreen";
 import PushToTalkButton, { type ButtonState } from "./components/PushToTalkButton";
 import SmallButtons from "./components/SmallButtons";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -41,7 +42,8 @@ type AppPhase =
   | "validating" // key available, validating with OpenAI
   | "loading"    // key valid, waiting for first voice_audio greeting
   | "ready"      // chat active
-  | "auth_error"; // key rejected by OpenAI
+  | "auth_error" // key rejected by OpenAI
+  | "ble_error"; // BLE device connection failed
 
 export default function App() {
   const recorder = useAudioRecorder();
@@ -189,6 +191,10 @@ export default function App() {
       case "auth_error":
         setAppPhase("auth_error");
         break;
+
+      case "ble_error":
+        setAppPhase("ble_error");
+        break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -253,60 +259,56 @@ export default function App() {
       case "checking":
       case "loading":
         return (
-          <div className="device-screen">
-            <div className="loading-container">
-              <img
-                src="/grot-spin.gif"
-                alt="Grot waking up"
-                className="loading-animation"
-              />
-              <p className="loading-caption">Grot is waking up...</p>
-            </div>
-          </div>
+          <StatusScreen
+            gifSrc="/grot-spin.gif"
+            gifAlt="Grot waking up"
+            lines={[{ text: "Grot is waking up..." }]}
+          />
         );
 
       case "validating":
         return (
-          <div className="device-screen">
-            <div className="loading-container">
-              <img
-                src="/grot-spin.gif"
-                alt="Validating"
-                className="loading-animation"
-              />
-              <p className="loading-caption">Validating API key...</p>
-            </div>
-          </div>
+          <StatusScreen
+            gifSrc="/grot-spin.gif"
+            gifAlt="Validating"
+            lines={[{ text: "Validating API key..." }]}
+          />
         );
 
       case "needs_key":
         return (
-          <div className="device-screen">
-            <div className="loading-container">
-              <img
-                src="/grot-sleep.gif"
-                alt="Grot sleeping"
-                className="loading-animation"
-              />
-              <p className="loading-caption">No OpenAI key detected</p>
-              <p className="loading-caption">Please add one in Settings</p>
-            </div>
-          </div>
+          <StatusScreen
+            gifSrc="/grot-sleep.gif"
+            gifAlt="Grot sleeping"
+            lines={[
+              { text: "No OpenAI key detected" },
+              { text: "Please add one in Settings" },
+            ]}
+          />
         );
 
       case "auth_error":
         return (
-          <div className="device-screen">
-            <div className="loading-container">
-              <img
-                src="/grot-sleep.gif"
-                alt="Grot sleeping"
-                className="loading-animation"
-              />
-              <p className="loading-caption led-error">Invalid API key</p>
-              <p className="loading-caption">Please update in Settings</p>
-            </div>
-          </div>
+          <StatusScreen
+            gifSrc="/grot-sleep.gif"
+            gifAlt="Grot sleeping"
+            lines={[
+              { text: "Invalid API key", error: true },
+              { text: "Please update in Settings" },
+            ]}
+          />
+        );
+
+      case "ble_error":
+        return (
+          <StatusScreen
+            gifSrc="/grot-antenna.gif"
+            gifAlt="Grot with antenna"
+            lines={[
+              { text: "Error connecting to the", error: true },
+              { text: "iDotMatrix device", error: true },
+            ]}
+          />
         );
 
       case "settings":
