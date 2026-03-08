@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 DEVICE_NAME_PREFIX = "IDM-"
 KNOWN_WRITE_UUID = "0000fa02-0000-1000-8000-00805f9b34fb"
 KNOWN_NOTIFY_UUID = "0000fa03-0000-1000-8000-00805f9b34fb"
+CCCD_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
 PROPERTY_NAMES = {
     "read": "READ",
@@ -87,6 +88,9 @@ async def explore_device(address: str) -> None:
 
                 for desc in char.descriptors:
                     logger.info("    Descriptor: %s (0x%04X)", desc.uuid, desc.handle)
+                    if desc.uuid == CCCD_UUID:
+                        logger.info("      (CCCD — skipped, managed by OS on macOS)")
+                        continue
                     try:
                         val = await client.read_gatt_descriptor(desc.handle)
                         logger.info("      Value: %s", val.hex())
