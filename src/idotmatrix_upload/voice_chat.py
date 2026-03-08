@@ -161,7 +161,7 @@ async def _send_greeting(
         clean_text = strip_mood_tag(full_response)
         if clean_text:
             live.update(Spinner("dots", text="Grot is preparing...", style="yellow"))
-            audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client)
+            audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client, response_format="wav")
         else:
             audio = None
 
@@ -283,7 +283,7 @@ async def _voice_loop(
             clean_text = strip_mood_tag(full_response)
             if clean_text:
                 live.update(Spinner("dots", text="Grot is preparing...", style="yellow"))
-                audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client)
+                audio = await synthesize(clean_text, api_key="", voice=tts_voice, client=openai_client, response_format="wav")
             else:
                 audio = None
 

@@ -124,6 +124,7 @@ async def synthesize(
     voice: str = "nova",
     voice_instructions: str = GROT_VOICE_INSTRUCTIONS,
     client: openai.AsyncOpenAI | None = None,
+    response_format: str = "mp3",
 ) -> bytes:
     """Convert text to spoken audio using OpenAI's TTS model.
 
@@ -135,9 +136,12 @@ async def synthesize(
         voice_instructions: Personality/style prompt for gpt-4o-mini-tts.
         client: Optional pre-built ``AsyncOpenAI`` instance.  Pass a shared
                 client to avoid repeated construction during long sessions.
+        response_format: Audio encoding returned by the API.  Use ``"mp3"``
+                for browser playback and ``"wav"`` for local ``sounddevice``
+                playback.
 
     Returns:
-        MP3 audio bytes ready to be played back by the browser's AudioContext.
+        Audio bytes in the requested format.
     """
     _client = client or openai.AsyncOpenAI(api_key=api_key)
 
@@ -145,7 +149,7 @@ async def synthesize(
         model="gpt-4o-mini-tts",
         voice=voice,  # type: ignore[arg-type]
         input=text,
-        response_format="mp3",
+        response_format=response_format,
         extra_body={"instructions": voice_instructions},
     )
 
