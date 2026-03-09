@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from idotmatrix_upload.openai_chat import OpenAIChatSession, synthesize, transcribe
+from walkie_grotkie.openai_chat import OpenAIChatSession, synthesize, transcribe
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ class TestTranscribe:
         mock_client = MagicMock()
         mock_client.audio.transcriptions.create = AsyncMock(return_value="hello world")
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             result = await transcribe(b"fake-wav-data", api_key="test-key")
 
         assert result == "hello world"
@@ -162,7 +162,7 @@ class TestTranscribe:
         mock_client = MagicMock()
         mock_client.audio.transcriptions.create = AsyncMock(return_value="  hello  ")
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             result = await transcribe(b"fake-wav-data", api_key="test-key")
 
         assert result == "hello"
@@ -180,7 +180,7 @@ class TestTranscribe:
             )
         )
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             result = await transcribe(b"", api_key="test-key")
 
         assert result == ""
@@ -197,7 +197,7 @@ class TestTranscribe:
 
         mock_client.audio.transcriptions.create = mock_create
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             await transcribe(b"fake-wav", api_key="test-key")
 
         assert captured_kwargs["model"] == "gpt-4o-transcribe"
@@ -220,7 +220,7 @@ class TestSynthesize:
         mock_client = MagicMock()
         mock_client.audio.speech.create = AsyncMock(return_value=mock_response)
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             result = await synthesize("Hello Grot!", api_key="test-key")
 
         assert result == fake_audio
@@ -238,7 +238,7 @@ class TestSynthesize:
         mock_client = MagicMock()
         mock_client.audio.speech.create = mock_create
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             await synthesize("test", api_key="test-key", voice="nova")
 
         assert captured_kwargs["response_format"] == "wav"
@@ -258,7 +258,7 @@ class TestSynthesize:
         mock_client = MagicMock()
         mock_client.audio.speech.create = mock_create
 
-        with patch("idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
+        with patch("walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=mock_client):
             await synthesize("test", api_key="test-key", voice_instructions="Be cheerful")
 
         extra = captured_kwargs.get("extra_body", {})
@@ -280,7 +280,7 @@ class TestClientInjection:
         injected_client.audio.transcriptions.create = AsyncMock(return_value="hello")
 
         with patch(
-            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI"
+            "walkie_grotkie.openai_chat.openai.AsyncOpenAI"
         ) as mock_constructor:
             result = await transcribe(b"wav", api_key="irrelevant", client=injected_client)
 
@@ -296,7 +296,7 @@ class TestClientInjection:
         fresh_client.audio.transcriptions.create = AsyncMock(return_value="hi")
 
         with patch(
-            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
+            "walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
         ) as mock_constructor:
             await transcribe(b"wav", api_key="test-key")
 
@@ -312,7 +312,7 @@ class TestClientInjection:
         injected_client.audio.speech.create = AsyncMock(return_value=fake_response)
 
         with patch(
-            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI"
+            "walkie_grotkie.openai_chat.openai.AsyncOpenAI"
         ) as mock_constructor:
             result = await synthesize("Hello", api_key="irrelevant", client=injected_client)
 
@@ -329,7 +329,7 @@ class TestClientInjection:
         fresh_client.audio.speech.create = AsyncMock(return_value=fake_response)
 
         with patch(
-            "idotmatrix_upload.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
+            "walkie_grotkie.openai_chat.openai.AsyncOpenAI", return_value=fresh_client
         ) as mock_constructor:
             await synthesize("Hello", api_key="test-key")
 

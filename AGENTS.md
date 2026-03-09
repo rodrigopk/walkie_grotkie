@@ -1,4 +1,4 @@
-# AGENTS.md — iDotMatrix Upload Development Guide
+# AGENTS.md — Walkie-Grotkie Development Guide
 
 ## Project Overview
 
@@ -22,7 +22,7 @@ plan lives in `docs/plans/upload_implementation.md`.
 ## Repository Layout
 
 ```
-src/idotmatrix_upload/    # All production code lives here
+src/walkie_grotkie/    # All production code lives here
   cli.py                  # Click CLI entry point
   ble.py                  # BLE scanning, connection, MTU negotiation
   protocol.py             # Packet framing, chunking, headers
@@ -31,7 +31,7 @@ src/idotmatrix_upload/    # All production code lives here
   generate.py             # GIF generation and frame assembly (assemble_gif_from_frames)
   sprite.py               # Sprite loading and frame rendering for animations
   service.py              # DeviceService — long-lived BLE connection + ACK flow
-  device_cache.py         # BLE address cache (~/.config/idotmatrix/devices.json)
+  device_cache.py         # BLE address cache (~/.config/walkie-grotkie/devices.json)
   chat.py                 # Text chat session (Anthropic Claude)
   voice_chat.py           # Voice chat session (push-to-talk)
   voice.py                # PushToTalkRecorder + audio playback
@@ -112,7 +112,7 @@ docs/
 - All `_send*` helpers swallow exceptions silently (broken connection must not
   crash the server).
 - The server runs on the same asyncio event loop as BLE/animation operations.
-- Start via: `idotmatrix-upload serve --port 8765`
+- Start via: `walkie-grotkie serve --port 8765`
 - Full protocol reference in [`walkie-talkie/AGENTS.md`](walkie-talkie/AGENTS.md).
 
 ### Testing

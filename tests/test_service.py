@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from idotmatrix_upload.ble import BLEConnectionError
-from idotmatrix_upload.protocol import ACK_COMPLETE, ACK_OK
-from idotmatrix_upload.service import DeviceService, UploadError
+from walkie_grotkie.ble import BLEConnectionError
+from walkie_grotkie.protocol import ACK_COMPLETE, ACK_OK
+from walkie_grotkie.service import DeviceService, UploadError
 
 
 def _make_mock_connection(address: str = "AA:BB:CC:DD:EE:FF") -> MagicMock:
@@ -46,8 +46,8 @@ def _auto_ack_connect(ack_sequence: list[bytes] | None = None):
 @pytest.fixture
 def _mock_cache():
     with (
-        patch("idotmatrix_upload.service.add_to_cache"),
-        patch("idotmatrix_upload.service.load_cache", return_value=[]),
+        patch("walkie_grotkie.service.add_to_cache"),
+        patch("walkie_grotkie.service.load_cache", return_value=[]),
     ):
         yield
 
@@ -61,7 +61,7 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_explicit_address(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             svc = DeviceService(device_address="AA:BB:CC:DD:EE:FF")
@@ -85,16 +85,16 @@ class TestConnect:
 
         with (
             patch(
-                "idotmatrix_upload.service.load_cache",
+                "walkie_grotkie.service.load_cache",
                 return_value=[cached_addr],
             ),
             patch(
-                "idotmatrix_upload.service.ble.connect",
+                "walkie_grotkie.service.ble.connect",
                 side_effect=mock_connect,
             ),
-            patch("idotmatrix_upload.service.add_to_cache"),
+            patch("walkie_grotkie.service.add_to_cache"),
             patch(
-                "idotmatrix_upload.service.ble.scan",
+                "walkie_grotkie.service.ble.scan",
                 new_callable=AsyncMock,
             ) as mock_scan,
         ):
@@ -115,19 +115,19 @@ class TestConnect:
 
         with (
             patch(
-                "idotmatrix_upload.service.load_cache",
+                "walkie_grotkie.service.load_cache",
                 return_value=["BAD:AD:DR:ES:S0:00"],
             ),
             patch(
-                "idotmatrix_upload.service.ble.connect",
+                "walkie_grotkie.service.ble.connect",
                 side_effect=mock_connect,
             ),
             patch(
-                "idotmatrix_upload.service.ble.scan",
+                "walkie_grotkie.service.ble.scan",
                 new_callable=AsyncMock,
                 return_value=["AA:BB:CC:DD:EE:FF"],
             ) as mock_scan,
-            patch("idotmatrix_upload.service.add_to_cache"),
+            patch("walkie_grotkie.service.add_to_cache"),
         ):
             svc = DeviceService(device_address=None, use_cache=True)
             await svc.connect()
@@ -140,11 +140,11 @@ class TestConnect:
     async def test_scan_no_device_raises(self):
         with (
             patch(
-                "idotmatrix_upload.service.load_cache",
+                "walkie_grotkie.service.load_cache",
                 return_value=[],
             ),
             patch(
-                "idotmatrix_upload.service.ble.scan",
+                "walkie_grotkie.service.ble.scan",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
@@ -157,14 +157,14 @@ class TestConnect:
     async def test_connect_updates_cache(self):
         with (
             patch(
-                "idotmatrix_upload.service.ble.connect",
+                "walkie_grotkie.service.ble.connect",
                 side_effect=_auto_ack_connect(),
             ),
             patch(
-                "idotmatrix_upload.service.load_cache",
+                "walkie_grotkie.service.load_cache",
                 return_value=[],
             ),
-            patch("idotmatrix_upload.service.add_to_cache") as mock_add,
+            patch("walkie_grotkie.service.add_to_cache") as mock_add,
         ):
             svc = DeviceService(
                 device_address="AA:BB:CC:DD:EE:FF", use_cache=True
@@ -176,7 +176,7 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_idempotent(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ) as mock_connect:
             svc = DeviceService(device_address="AA:BB:CC:DD:EE:FF")
@@ -195,7 +195,7 @@ class TestContextManager:
     @pytest.mark.asyncio
     async def test_enter_exit(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             async with DeviceService(
@@ -213,7 +213,7 @@ class TestContextManager:
             return mock_conn
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=mock_connect,
         ):
             with pytest.raises(RuntimeError, match="boom"):
@@ -245,7 +245,7 @@ class TestDisconnect:
             return mock_conn
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=mock_connect,
         ):
             svc = DeviceService(device_address="AA:BB:CC:DD:EE:FF")
@@ -287,7 +287,7 @@ class TestSendPacket:
     @pytest.mark.asyncio
     async def test_send_packet_ack_ok(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             async with DeviceService(
@@ -299,7 +299,7 @@ class TestSendPacket:
     @pytest.mark.asyncio
     async def test_send_packet_ack_complete(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect([ACK_COMPLETE]),
         ):
             async with DeviceService(
@@ -325,7 +325,7 @@ class TestSendPacket:
             return conn
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=mock_connect,
         ):
             async with DeviceService(
@@ -345,7 +345,7 @@ class TestSendPacket:
             return conn
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=mock_connect,
         ):
             async with DeviceService(
@@ -372,7 +372,7 @@ class TestSendPackets:
     @pytest.mark.asyncio
     async def test_send_multiple_packets(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             async with DeviceService(
@@ -386,7 +386,7 @@ class TestSendPackets:
         progress: list[tuple[int, int]] = []
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             async with DeviceService(
@@ -403,7 +403,7 @@ class TestSendPackets:
     async def test_send_packets_stops_on_complete(self, _mock_cache):
         """Device's COMPLETE ACK must stop further sends; the second packet is dropped."""
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect([ACK_COMPLETE, ACK_OK]),
         ) as mock_connect:
             async with DeviceService(
@@ -423,7 +423,7 @@ class TestSendPackets:
         progress: list[tuple[int, int]] = []
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect([ACK_COMPLETE, ACK_OK]),
         ):
             async with DeviceService(
@@ -447,7 +447,7 @@ class TestUploadGif:
     @pytest.mark.asyncio
     async def test_upload_gif_builds_and_sends_packets(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             gif_data = b"GIF89a" + b"\x00" * 200
@@ -462,7 +462,7 @@ class TestUploadGif:
         progress: list[tuple[int, int]] = []
 
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect(),
         ):
             gif_data = b"GIF89a" + b"\x00" * 200
@@ -480,7 +480,7 @@ class TestUploadGif:
     @pytest.mark.asyncio
     async def test_upload_gif_with_completion(self, _mock_cache):
         with patch(
-            "idotmatrix_upload.service.ble.connect",
+            "walkie_grotkie.service.ble.connect",
             side_effect=_auto_ack_connect([ACK_COMPLETE]),
         ):
             gif_data = b"GIF89a" + b"\x00" * 200

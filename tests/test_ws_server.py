@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import openai as _openai
 import pytest
 
-from idotmatrix_upload.ws_server import DEFAULT_PORT, GrotWebSocketServer
+from walkie_grotkie.ws_server import DEFAULT_PORT, GrotWebSocketServer
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ class TestHandleCommand:
     @pytest.mark.asyncio
     async def test_animation_command_valid(self):
         server, mock_ws = self._server_with_controller()
-        from idotmatrix_upload.animations import AnimationState
+        from walkie_grotkie.animations import AnimationState
         await server._handle_command("/animation idle")
         server._controller.transition.assert_called()
         # Check that the first transition call used the IDLE state
@@ -201,7 +201,7 @@ class TestHandleCommand:
     @pytest.mark.asyncio
     async def test_animation_command_surprised(self):
         server, mock_ws = self._server_with_controller()
-        from idotmatrix_upload.animations import AnimationState
+        from walkie_grotkie.animations import AnimationState
         await server._handle_command("/animation surprised")
         first_call_state = server._controller.transition.call_args_list[0][0][0]
         assert first_call_state == AnimationState.SURPRISED
@@ -280,11 +280,11 @@ class TestHandleVoiceAudio:
 
         with (
             patch(
-                "idotmatrix_upload.ws_server.transcribe",
+                "walkie_grotkie.ws_server.transcribe",
                 new=AsyncMock(return_value="Hello Grot"),
             ),
             patch(
-                "idotmatrix_upload.ws_server.synthesize",
+                "walkie_grotkie.ws_server.synthesize",
                 new=AsyncMock(return_value=b"\x00\x01"),
             ),
         ):
@@ -297,7 +297,7 @@ class TestHandleVoiceAudio:
         server, mock_ws, mock_controller, mock_session = self._server_with_mocks()
 
         with patch(
-            "idotmatrix_upload.ws_server.transcribe",
+            "walkie_grotkie.ws_server.transcribe",
             new=AsyncMock(return_value=""),
         ):
             await server._handle_voice_audio(_b64_wav())
@@ -324,11 +324,11 @@ class TestHandleVoiceAudio:
 
         with (
             patch(
-                "idotmatrix_upload.ws_server.transcribe",
+                "walkie_grotkie.ws_server.transcribe",
                 new=AsyncMock(return_value="Tell me a joke"),
             ),
             patch(
-                "idotmatrix_upload.ws_server.synthesize",
+                "walkie_grotkie.ws_server.synthesize",
                 new=AsyncMock(return_value=b"RIFF...."),
             ),
         ):
@@ -345,12 +345,12 @@ class TestHandleVoiceAudio:
         server, mock_ws, mock_controller, mock_session = self._server_with_mocks()
 
         with patch(
-            "idotmatrix_upload.ws_server.transcribe",
+            "walkie_grotkie.ws_server.transcribe",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ):
             await server._handle_voice_audio(_b64_wav())
 
-        from idotmatrix_upload.animations import AnimationState
+        from walkie_grotkie.animations import AnimationState
         mock_controller.transition.assert_called()
         last_state = mock_controller.transition.call_args_list[-1][0][0]
         assert last_state == AnimationState.SURPRISED
@@ -369,11 +369,11 @@ class TestHandleVoiceAudio:
 
         with (
             patch(
-                "idotmatrix_upload.ws_server.transcribe",
+                "walkie_grotkie.ws_server.transcribe",
                 new=AsyncMock(return_value="hi"),
             ),
             patch(
-                "idotmatrix_upload.ws_server.synthesize",
+                "walkie_grotkie.ws_server.synthesize",
                 new=AsyncMock(return_value=raw_audio),
             ),
         ):
@@ -398,7 +398,7 @@ class TestSetupBle:
         server._client = mock_ws
 
         with patch(
-            "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+            "walkie_grotkie.ws_server.AnimationRegistry.preload",
             side_effect=FileNotFoundError("missing gif"),
         ):
             result = await server._setup_ble()
@@ -415,14 +415,14 @@ class TestSetupBle:
 
         with (
             patch(
-                "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+                "walkie_grotkie.ws_server.AnimationRegistry.preload",
             ),
             patch(
-                "idotmatrix_upload.ws_server.DeviceService.connect",
+                "walkie_grotkie.ws_server.DeviceService.connect",
                 new=AsyncMock(side_effect=RuntimeError("BLE scan failed")),
             ),
             patch(
-                "idotmatrix_upload.ws_server.AnimationRegistry.loaded_count",
+                "walkie_grotkie.ws_server.AnimationRegistry.loaded_count",
                 new_callable=lambda: property(lambda self: 10),
             ),
         ):
@@ -441,17 +441,17 @@ class TestSetupBle:
         server._client = mock_ws
 
         with (
-            patch("idotmatrix_upload.ws_server.AnimationRegistry.preload"),
+            patch("walkie_grotkie.ws_server.AnimationRegistry.preload"),
             patch(
-                "idotmatrix_upload.ws_server.DeviceService.connect",
+                "walkie_grotkie.ws_server.DeviceService.connect",
                 new=AsyncMock(),
             ),
             patch(
-                "idotmatrix_upload.ws_server.AnimationRegistry.loaded_count",
+                "walkie_grotkie.ws_server.AnimationRegistry.loaded_count",
                 new_callable=lambda: property(lambda self: 5),
             ),
             patch(
-                "idotmatrix_upload.ws_server.DeviceService.address",
+                "walkie_grotkie.ws_server.DeviceService.address",
                 new_callable=lambda: property(lambda self: "AA:BB:CC:DD:EE:FF"),
             ),
         ):
@@ -466,7 +466,7 @@ class TestSetupOpenAI:
     @pytest.mark.asyncio
     async def test_setup_openai_creates_session_and_client(self):
         server = _make_server(api_key="sk-build-test")
-        with patch("idotmatrix_upload.ws_server._openai.AsyncOpenAI") as mock_cls:
+        with patch("walkie_grotkie.ws_server._openai.AsyncOpenAI") as mock_cls:
             await server._setup_openai()
         # AsyncOpenAI is called at least once with the correct key.
         # (OpenAIChatSession may also call it internally.)
@@ -480,7 +480,7 @@ class TestSetupOpenAI:
         """After updating _api_key, _setup_openai must use the new value."""
         server = _make_server(api_key="sk-old")
         server._api_key = "sk-new"
-        with patch("idotmatrix_upload.ws_server._openai.AsyncOpenAI") as mock_cls:
+        with patch("walkie_grotkie.ws_server._openai.AsyncOpenAI") as mock_cls:
             await server._setup_openai()
         # The last explicit client construction must use the updated key.
         mock_cls.assert_called_with(api_key="sk-new")
@@ -496,7 +496,7 @@ class TestSetupOpenAI:
     @pytest.mark.asyncio
     async def test_setup_openai_propagates_auth_error(self):
         """AuthenticationError must propagate so the caller can send auth_error."""
-        from idotmatrix_upload.openai_chat import OpenAIChatSession
+        from walkie_grotkie.openai_chat import OpenAIChatSession
 
         server = _make_server(api_key="sk-bad")
         with patch.object(
@@ -622,7 +622,7 @@ class TestSetApiKey:
         ):
             await server._handle_set_api_key("sk-bad-key")
 
-        from idotmatrix_upload.animations import AnimationState
+        from walkie_grotkie.animations import AnimationState
         server._controller.transition.assert_called()
         last_state = server._controller.transition.call_args_list[-1][0][0]
         assert last_state == AnimationState.SURPRISED
@@ -656,7 +656,7 @@ class TestSetup:
         server._client = mock_ws
 
         with patch(
-            "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+            "walkie_grotkie.ws_server.AnimationRegistry.preload",
             side_effect=FileNotFoundError("missing gif"),
         ):
             result = await server._setup()
@@ -673,14 +673,14 @@ class TestSetup:
 
         with (
             patch(
-                "idotmatrix_upload.ws_server.AnimationRegistry.preload",
+                "walkie_grotkie.ws_server.AnimationRegistry.preload",
             ),
             patch(
-                "idotmatrix_upload.ws_server.DeviceService.connect",
+                "walkie_grotkie.ws_server.DeviceService.connect",
                 new=AsyncMock(side_effect=RuntimeError("BLE scan failed")),
             ),
             patch(
-                "idotmatrix_upload.ws_server.AnimationRegistry.loaded_count",
+                "walkie_grotkie.ws_server.AnimationRegistry.loaded_count",
                 new_callable=lambda: property(lambda self: 10),
             ),
         ):
@@ -704,7 +704,7 @@ class TestSetup:
         server._device = mock_device
 
         with patch(
-            "idotmatrix_upload.ws_server.play_sleeping",
+            "walkie_grotkie.ws_server.play_sleeping",
             new=AsyncMock(),
         ) as mock_sleeping:
             await server._teardown()
@@ -724,7 +724,7 @@ class TestSetup:
         mock_device.disconnect = AsyncMock()
         server._device = mock_device
 
-        with patch("idotmatrix_upload.ws_server.play_sleeping", new=AsyncMock()):
+        with patch("walkie_grotkie.ws_server.play_sleeping", new=AsyncMock()):
             await server._teardown()
 
         assert server._device is None

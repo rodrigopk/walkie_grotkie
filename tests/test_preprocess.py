@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from idotmatrix_upload.generate import generate_spinning_number_gif
-from idotmatrix_upload.preprocess import (
+from walkie_grotkie.generate import generate_spinning_number_gif
+from walkie_grotkie.preprocess import (
     PreprocessResult,
     ValidationError,
     preprocess_batch,

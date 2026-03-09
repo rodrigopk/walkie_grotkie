@@ -12,7 +12,7 @@
 #      Tauri requires (e.g. grot-server-aarch64-apple-darwin).
 #
 # Prerequisites:
-#   - The project venv (.venv/) must exist and have the idotmatrix_upload
+#   - The project venv (.venv/) must exist and have the walkie_grotkie
 #     package installed (pip install -e ".[voice]").
 #   - rustc must be on PATH so we can query the current target triple.
 
@@ -52,23 +52,23 @@ cd "${PROJECT_ROOT}"
 pyinstaller \
     --onefile \
     --name grot-server \
-    --hidden-import idotmatrix_upload \
-    --hidden-import idotmatrix_upload.ws_server \
-    --hidden-import idotmatrix_upload.animations \
-    --hidden-import idotmatrix_upload.openai_chat \
-    --hidden-import idotmatrix_upload.service \
-    --hidden-import idotmatrix_upload.chat_commands \
-    --hidden-import idotmatrix_upload.prompts \
-    --hidden-import idotmatrix_upload.protocol \
-    --hidden-import idotmatrix_upload.chat \
-    --hidden-import idotmatrix_upload.ble \
-    --hidden-import idotmatrix_upload.preprocess \
-    --hidden-import idotmatrix_upload.device_cache \
-    --collect-all idotmatrix_upload \
+    --hidden-import walkie_grotkie \
+    --hidden-import walkie_grotkie.ws_server \
+    --hidden-import walkie_grotkie.animations \
+    --hidden-import walkie_grotkie.openai_chat \
+    --hidden-import walkie_grotkie.service \
+    --hidden-import walkie_grotkie.chat_commands \
+    --hidden-import walkie_grotkie.prompts \
+    --hidden-import walkie_grotkie.protocol \
+    --hidden-import walkie_grotkie.chat \
+    --hidden-import walkie_grotkie.ble \
+    --hidden-import walkie_grotkie.preprocess \
+    --hidden-import walkie_grotkie.device_cache \
+    --collect-all walkie_grotkie \
     --distpath "${SCRIPT_DIR}/dist-sidecar" \
     --workpath "${SCRIPT_DIR}/build-sidecar-work" \
     --specpath "${SCRIPT_DIR}" \
-    src/idotmatrix_upload/ws_server.py
+    src/walkie_grotkie/ws_server.py
 
 # ── Copy to Tauri binaries dir with target-triple suffix ──────────────────
 mkdir -p "${BINARIES_DIR}"

@@ -7,7 +7,7 @@ import pytest
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from idotmatrix_upload.ble import (
+from walkie_grotkie.ble import (
     BLEConnectionError,
     BLEWriteError,
     DEVICE_NAME_PREFIX,
@@ -129,7 +129,7 @@ class TestScan:
         }
 
         with patch(
-            "idotmatrix_upload.ble.BleakScanner.discover",
+            "walkie_grotkie.ble.BleakScanner.discover",
             new_callable=AsyncMock,
             return_value=discover_result,
         ):
@@ -140,7 +140,7 @@ class TestScan:
     @pytest.mark.asyncio
     async def test_no_devices_returns_empty(self):
         with patch(
-            "idotmatrix_upload.ble.BleakScanner.discover",
+            "walkie_grotkie.ble.BleakScanner.discover",
             new_callable=AsyncMock,
             return_value={},
         ):
@@ -151,7 +151,7 @@ class TestScan:
     @pytest.mark.asyncio
     async def test_scan_error_raises(self):
         with patch(
-            "idotmatrix_upload.ble.BleakScanner.discover",
+            "walkie_grotkie.ble.BleakScanner.discover",
             new_callable=AsyncMock,
             side_effect=BleakError("Bluetooth off"),
         ):
@@ -164,7 +164,7 @@ class TestScan:
         discover_result = {"k": (dev, adv)}
 
         with patch(
-            "idotmatrix_upload.ble.BleakScanner.discover",
+            "walkie_grotkie.ble.BleakScanner.discover",
             new_callable=AsyncMock,
             return_value=discover_result,
         ):
@@ -178,7 +178,7 @@ class TestScan:
         discover_result = {"k": (dev, adv)}
 
         with patch(
-            "idotmatrix_upload.ble.BleakScanner.discover",
+            "walkie_grotkie.ble.BleakScanner.discover",
             new_callable=AsyncMock,
             return_value=discover_result,
         ):
@@ -193,7 +193,7 @@ class TestConnect:
         mock_client = _make_mock_client()
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             conn = await connect("AA:BB:CC:DD:EE:FF")
@@ -208,7 +208,7 @@ class TestConnect:
         callback = MagicMock()
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             await connect("AA:BB:CC:DD:EE:FF", on_notification=callback)
@@ -222,7 +222,7 @@ class TestConnect:
         mock_client = _make_mock_client()
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             conn = await connect("AA:BB:CC:DD:EE:FF")
@@ -236,7 +236,7 @@ class TestConnect:
         mock_client.connect = AsyncMock(side_effect=BleakError("refused"))
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             with pytest.raises(BLEConnectionError, match="Could not connect"):
@@ -248,7 +248,7 @@ class TestConnect:
         mock_client.connect = AsyncMock(side_effect=asyncio.TimeoutError())
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             with pytest.raises(BLEConnectionError, match="Could not connect"):
@@ -260,7 +260,7 @@ class TestConnect:
         mock_client.start_notify = AsyncMock(side_effect=BleakError("no char"))
 
         with patch(
-            "idotmatrix_upload.ble.BleakClient",
+            "walkie_grotkie.ble.BleakClient",
             return_value=mock_client,
         ):
             with pytest.raises(BLEConnectionError, match="notifications"):

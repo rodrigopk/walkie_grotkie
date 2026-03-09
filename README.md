@@ -1,4 +1,4 @@
-# iDotMatrix Upload
+# Walkie-Grotkie
 
 CLI tool for uploading GIF animations to
 [iDotMatrix](https://www.idotmatrix.com/) LED matrix devices over Bluetooth Low
@@ -20,8 +20,8 @@ For voice chat you also need a working microphone and speakers/headphones.
 Clone the repo and install in editable mode:
 
 ```bash
-git clone https://github.com/<your-user>/idotmatrix-upload.git
-cd idotmatrix-upload
+git clone https://github.com/<your-user>/walkie-grotkie.git
+cd walkie-grotkie
 ```
 
 Pick the extras you need:
@@ -48,19 +48,19 @@ pip install -e ".[chat,voice,dev]"
 ### Upload a GIF
 
 ```bash
-idotmatrix-upload upload path/to/animation.gif
+walkie-grotkie upload path/to/animation.gif
 ```
 
 Upload multiple GIFs in one go:
 
 ```bash
-idotmatrix-upload upload anim1.gif anim2.gif anim3.gif --delay 2.0
+walkie-grotkie upload anim1.gif anim2.gif anim3.gif --delay 2.0
 ```
 
 Skip the BLE scan by passing a known device address:
 
 ```bash
-idotmatrix-upload upload animation.gif --device-addr "AA:BB:CC:DD:EE:FF"
+walkie-grotkie upload animation.gif --device-addr "AA:BB:CC:DD:EE:FF"
 ```
 
 ### Text chat with Grot
@@ -95,7 +95,7 @@ export ANTHROPIC_API_KEY="sk-ant-your-actual-key-here"
 #### 3. Start chatting
 
 ```bash
-idotmatrix-upload chat
+walkie-grotkie chat
 ```
 
 Example session:
@@ -151,7 +151,7 @@ export OPENAI_API_KEY="sk-your-openai-key-here"
 #### 3. Start talking
 
 ```bash
-idotmatrix-upload voice-chat
+walkie-grotkie voice-chat
 ```
 
 Example session:
@@ -189,7 +189,7 @@ Grot (speaking): "Watch this!" *dancing*
 Create numbered spinning-digit GIFs for testing uploads:
 
 ```bash
-idotmatrix-upload generate --count 5 --output-dir ./test_gifs
+walkie-grotkie generate --count 5 --output-dir ./test_gifs
 ```
 
 ### Preprocess GIFs
@@ -197,7 +197,7 @@ idotmatrix-upload generate --count 5 --output-dir ./test_gifs
 Validate and resize GIFs for the device without uploading:
 
 ```bash
-idotmatrix-upload preprocess animation.gif --size 64x64 --output-dir ./processed
+walkie-grotkie preprocess animation.gif --size 64x64 --output-dir ./processed
 ```
 
 ### Assemble PNG frames into a GIF
@@ -205,13 +205,13 @@ idotmatrix-upload preprocess animation.gif --size 64x64 --output-dir ./processed
 Combine a directory of PNG frames into an animated GIF:
 
 ```bash
-idotmatrix-upload assemble-gif frames_dir/ -o output.gif --fps 20
+walkie-grotkie assemble-gif frames_dir/ -o output.gif --fps 20
 ```
 
 Resize during assembly:
 
 ```bash
-idotmatrix-upload assemble-gif frames_dir/ -o output.gif --fps 12 --size 64x64
+walkie-grotkie assemble-gif frames_dir/ -o output.gif --fps 12 --size 64x64
 ```
 
 ## Walkie-talkie UI
@@ -229,7 +229,7 @@ Tauri sidecar, so no separate terminal is needed in production builds.
 cd walkie-talkie
 npm install
 # In a separate terminal start the Python server:
-source .venv/bin/activate idotmatrix-upload serve --port 8765
+source .venv/bin/activate walkie-grotkie serve --port 8765
 # Then launch the Tauri app:
 cargo tauri dev
 ```

@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from idotmatrix_upload.generate import generate_spinning_number_gif
-from idotmatrix_upload.preprocess import ValidationError
-from idotmatrix_upload.upload import upload_gifs
+from walkie_grotkie.generate import generate_spinning_number_gif
+from walkie_grotkie.preprocess import ValidationError
+from walkie_grotkie.upload import upload_gifs
 
 
 def _make_mock_service():
@@ -36,7 +36,7 @@ def _patch_device_service(mock_svc=None):
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
     mock_cls.return_value = mock_ctx
 
-    return patch("idotmatrix_upload.upload.DeviceService", mock_cls), mock_svc, mock_cls
+    return patch("walkie_grotkie.upload.DeviceService", mock_cls), mock_svc, mock_cls
 
 
 @pytest.fixture
@@ -148,7 +148,7 @@ class TestUploadGifs:
     async def test_upload_delay_sleeps_between_files(self, two_gifs: list[Path]):
         patcher, _, _ = _patch_device_service()
         with patcher, patch(
-            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+            "walkie_grotkie.upload.asyncio.sleep", new_callable=AsyncMock
         ) as mock_sleep:
             await upload_gifs(
                 two_gifs,
@@ -163,7 +163,7 @@ class TestUploadGifs:
     async def test_upload_delay_not_applied_for_single_file(self, single_gif: Path):
         patcher, _, _ = _patch_device_service()
         with patcher, patch(
-            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+            "walkie_grotkie.upload.asyncio.sleep", new_callable=AsyncMock
         ) as mock_sleep:
             await upload_gifs(
                 [single_gif],
@@ -178,7 +178,7 @@ class TestUploadGifs:
     async def test_upload_no_delay_by_default(self, two_gifs: list[Path]):
         patcher, _, _ = _patch_device_service()
         with patcher, patch(
-            "idotmatrix_upload.upload.asyncio.sleep", new_callable=AsyncMock
+            "walkie_grotkie.upload.asyncio.sleep", new_callable=AsyncMock
         ) as mock_sleep:
             await upload_gifs(
                 two_gifs,

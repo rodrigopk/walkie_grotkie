@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from idotmatrix_upload.generate import (
+from walkie_grotkie.generate import (
     assemble_gif_from_frames,
     generate_spinning_number_gif,
     generate_test_set,

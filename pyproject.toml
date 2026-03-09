@@ -1,5 +1,5 @@
 [project]
-name = "idotmatrix-upload"
+name = "walkie-grotkie"
 version = "0.1.0"
 description = "CLI tool for uploading GIF animations to iDotMatrix LED matrix devices over BLE"
 requires-python = ">=3.11"
@@ -29,7 +29,7 @@ dev = [
 ]
 
 [project.scripts]
-idotmatrix-upload = "idotmatrix_upload.cli:main"
+walkie-grotkie = "walkie_grotkie.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

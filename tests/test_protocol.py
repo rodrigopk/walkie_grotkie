@@ -3,7 +3,7 @@ import zlib
 
 import pytest
 
-from idotmatrix_upload.protocol import (
+from walkie_grotkie.protocol import (
     ACK_COMPLETE,
     ACK_OK,
     CHUNK_FLAG_CONTINUATION,

@@ -43,9 +43,9 @@ Tauri App (walkie-talkie/)
 
   build-sidecar.sh        — PyInstaller build script
 
-Python backend (../src/idotmatrix_upload/)
+Python backend (../src/walkie_grotkie/)
   ws_server.py            — GrotWebSocketServer, WebSocket API
-  cli.py                  — `idotmatrix-upload serve` command
+  cli.py                  — `walkie-grotkie serve` command
 ```
 
 ---
@@ -54,7 +54,7 @@ Python backend (../src/idotmatrix_upload/)
 
 All messages are JSON with a `type` discriminant field. The TypeScript types
 live in `src/types/protocol.ts`; the Python implementation is in
-`../src/idotmatrix_upload/ws_server.py`.
+`../src/walkie_grotkie/ws_server.py`.
 
 ### Client → Server
 
@@ -177,7 +177,7 @@ walkie-talkie/
 cd /path/to/repo
 source .venv/bin/activate
 export OPENAI_API_KEY="sk-..."
-idotmatrix-upload serve --port 8765
+walkie-grotkie serve --port 8765
 
 # Terminal 2: Tauri app
 cd walkie-talkie

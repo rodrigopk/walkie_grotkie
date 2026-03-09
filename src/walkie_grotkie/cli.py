@@ -1,4 +1,4 @@
-"""CLI entry point for iDotMatrix GIF Upload.
+"""CLI entry point for Walkie-Grotkie.
 
 Provides subcommands:
   - upload:     Preprocess and upload GIFs to a device
@@ -60,7 +60,7 @@ def _parse_size(size_str: str) -> tuple[int, int]:
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
-    """iDotMatrix GIF Upload — upload GIF animations to iDotMatrix LED matrix devices."""
+    """Walkie-Grotkie — upload GIF animations to iDotMatrix LED matrix devices."""
 
 
 @main.command()
@@ -188,7 +188,7 @@ def assemble_gif(
 @click.option("--size", default="64x64", help="Target resolution WxH.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging.")
 def preprocess(gif_paths: tuple[str, ...], output_dir: str, size: str, verbose: bool) -> None:
-    """Validate and preprocess GIF files for iDotMatrix upload."""
+    """Validate and preprocess GIF files for device upload."""
     _setup_logging(verbose)
     target_size = _parse_size(size)
     paths = [Path(p) for p in gif_paths]

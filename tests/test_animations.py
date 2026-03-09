@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from idotmatrix_upload.animations import (
+from walkie_grotkie.animations import (
     ANIMATION_MAP,
     ANIMATION_DURATION_S,
     AnimationController,
@@ -202,7 +202,7 @@ class TestTalkingSequence:
         device = _mock_device()
 
         controller = AnimationController(device, registry)
-        with patch("idotmatrix_upload.animations.random.randint", return_value=0):
+        with patch("walkie_grotkie.animations.random.randint", return_value=0):
             await controller.transition(AnimationState.TALKING)
             await asyncio.sleep(0.05)
 
@@ -217,7 +217,7 @@ class TestTalkingSequence:
         device = _mock_device()
 
         controller = AnimationController(device, registry)
-        with patch("idotmatrix_upload.animations.random.randint", return_value=1):
+        with patch("walkie_grotkie.animations.random.randint", return_value=1):
             await controller.transition(AnimationState.TALKING)
             await asyncio.sleep(0.05)
 
@@ -235,8 +235,8 @@ class TestTalkingSequence:
         # Patch ANIMATION_DURATION_S to 0 so the real asyncio.sleep returns
         # immediately, letting the background task finish quickly.
         with (
-            patch("idotmatrix_upload.animations.random.randint", return_value=2),
-            patch("idotmatrix_upload.animations.ANIMATION_DURATION_S", 0.0),
+            patch("walkie_grotkie.animations.random.randint", return_value=2),
+            patch("walkie_grotkie.animations.ANIMATION_DURATION_S", 0.0),
         ):
             await controller.transition(AnimationState.TALKING)
             await asyncio.sleep(0.1)
@@ -256,7 +256,7 @@ class TestTalkingSequence:
         device = _mock_device()
 
         controller = AnimationController(device, registry)
-        with patch("idotmatrix_upload.animations.random.randint", return_value=2):
+        with patch("walkie_grotkie.animations.random.randint", return_value=2):
             sequence = controller._pick_talking_sequence()
 
         assert len(sequence) == 2
@@ -276,7 +276,7 @@ class TestTalkingSequence:
         device.send_packets = AsyncMock(side_effect=lambda *a, **kw: stall.wait())
 
         controller = AnimationController(device, registry)
-        with patch("idotmatrix_upload.animations.random.randint", return_value=2):
+        with patch("walkie_grotkie.animations.random.randint", return_value=2):
             await controller.transition(AnimationState.TALKING)
 
         await controller.transition(AnimationState.IDLE)

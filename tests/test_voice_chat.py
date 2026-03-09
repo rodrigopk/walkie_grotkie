@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from idotmatrix_upload.animations import AnimationState
+from walkie_grotkie.animations import AnimationState
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ from idotmatrix_upload.animations import AnimationState
 
 def _make_registry(tmp_path: Path):
     """Create an AnimationRegistry with fake GIF files for all states."""
-    from idotmatrix_upload.animations import ANIMATION_MAP, AnimationRegistry
+    from walkie_grotkie.animations import ANIMATION_MAP, AnimationRegistry
 
     for rel_path in ANIMATION_MAP.values():
         gif_file = tmp_path / rel_path
@@ -46,7 +46,7 @@ def _make_device() -> MagicMock:
 
 
 def _make_controller(tmp_path: Path, device=None):
-    from idotmatrix_upload.animations import AnimationController
+    from walkie_grotkie.animations import AnimationController
 
     device = device or _make_device()
     registry = _make_registry(tmp_path)
@@ -66,7 +66,7 @@ class TestVoiceLoopEmptyAudio:
     @pytest.mark.asyncio
     async def test_empty_wav_prints_warning_and_loops(self, tmp_path: Path):
         """When recorder returns empty bytes, loop warns and stays in current state."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, transitions = _make_controller(tmp_path)
         session = MagicMock()
@@ -85,9 +85,9 @@ class TestVoiceLoopEmptyAudio:
         recorder.wait_for_input = fake_wait_for_input
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
         ):
             try:
                 await _voice_loop(console, session, controller, recorder, "test-key", "nova")
@@ -107,7 +107,7 @@ class TestVoiceLoopEmptyTranscription:
     @pytest.mark.asyncio
     async def test_silent_audio_transitions_to_idle(self, tmp_path: Path):
         """When transcription returns '', controller must go back to IDLE."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, transitions = _make_controller(tmp_path)
         session = MagicMock()
@@ -126,11 +126,11 @@ class TestVoiceLoopEmptyTranscription:
         recorder.wait_for_input = fake_wait_for_input
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
-            patch("idotmatrix_upload.voice_chat.transcribe", new_callable=AsyncMock, return_value=""),
-            patch("idotmatrix_upload.voice_chat.Live"),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.transcribe", new_callable=AsyncMock, return_value=""),
+            patch("walkie_grotkie.voice_chat.Live"),
         ):
             try:
                 await _voice_loop(console, session, controller, recorder, "test-key", "nova")
@@ -150,7 +150,7 @@ class TestVoiceLoopSuccessfulTurn:
     @pytest.mark.asyncio
     async def test_full_turn_triggers_expected_animation_sequence(self, tmp_path: Path):
         """Successful voice input drives THINKING → TALKING → mood → IDLE."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, transitions = _make_controller(tmp_path)
         session = MagicMock()
@@ -174,22 +174,22 @@ class TestVoiceLoopSuccessfulTurn:
         session.stream_response = fake_stream_response
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
             patch(
-                "idotmatrix_upload.voice_chat.transcribe",
+                "walkie_grotkie.voice_chat.transcribe",
                 new_callable=AsyncMock,
                 return_value="Hello Grot",
             ),
             patch(
-                "idotmatrix_upload.voice_chat.synthesize",
+                "walkie_grotkie.voice_chat.synthesize",
                 new_callable=AsyncMock,
                 return_value=b"audio",
             ),
-            patch("idotmatrix_upload.voice_chat.play_audio", new_callable=AsyncMock),
-            patch("idotmatrix_upload.voice_chat.Live"),
-            patch("idotmatrix_upload.voice_chat.asyncio.sleep", new_callable=AsyncMock),
+            patch("walkie_grotkie.voice_chat.play_audio", new_callable=AsyncMock),
+            patch("walkie_grotkie.voice_chat.Live"),
+            patch("walkie_grotkie.voice_chat.asyncio.sleep", new_callable=AsyncMock),
         ):
             try:
                 await _voice_loop(console, session, controller, recorder, "test-key", "nova")
@@ -203,7 +203,7 @@ class TestVoiceLoopSuccessfulTurn:
     @pytest.mark.asyncio
     async def test_user_message_added_to_session(self, tmp_path: Path):
         """Transcribed text must be added to the session history."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, _ = _make_controller(tmp_path)
         session = MagicMock()
@@ -227,22 +227,22 @@ class TestVoiceLoopSuccessfulTurn:
         session.stream_response = fake_stream_response
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
             patch(
-                "idotmatrix_upload.voice_chat.transcribe",
+                "walkie_grotkie.voice_chat.transcribe",
                 new_callable=AsyncMock,
                 return_value="Test input",
             ),
             patch(
-                "idotmatrix_upload.voice_chat.synthesize",
+                "walkie_grotkie.voice_chat.synthesize",
                 new_callable=AsyncMock,
                 return_value=b"audio",
             ),
-            patch("idotmatrix_upload.voice_chat.play_audio", new_callable=AsyncMock),
-            patch("idotmatrix_upload.voice_chat.Live"),
-            patch("idotmatrix_upload.voice_chat.asyncio.sleep", new_callable=AsyncMock),
+            patch("walkie_grotkie.voice_chat.play_audio", new_callable=AsyncMock),
+            patch("walkie_grotkie.voice_chat.Live"),
+            patch("walkie_grotkie.voice_chat.asyncio.sleep", new_callable=AsyncMock),
         ):
             try:
                 await _voice_loop(console, session, controller, recorder, "test-key", "nova")
@@ -262,7 +262,7 @@ class TestVoiceLoopCommandMode:
     @pytest.mark.asyncio
     async def test_slash_returns_none_enters_command_prompt(self, tmp_path: Path):
         """When recorder returns None (/ pressed), the loop prompts for a command."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, _ = _make_controller(tmp_path)
         session = MagicMock()
@@ -277,11 +277,11 @@ class TestVoiceLoopCommandMode:
         recorder.wait_for_input = fake_wait_for_input
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
             patch(
-                "idotmatrix_upload.voice_chat.asyncio.to_thread",
+                "walkie_grotkie.voice_chat.asyncio.to_thread",
                 new_callable=AsyncMock,
                 return_value="/exit",
             ),
@@ -294,7 +294,7 @@ class TestVoiceLoopCommandMode:
     @pytest.mark.asyncio
     async def test_slash_help_command_prints_help(self, tmp_path: Path):
         """'/help' in command mode calls the help printer."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, _ = _make_controller(tmp_path)
         session = MagicMock()
@@ -318,11 +318,11 @@ class TestVoiceLoopCommandMode:
             return next(side_iter)
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
-            patch("idotmatrix_upload.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
-            patch("idotmatrix_upload.voice_chat._print_help") as mock_help,
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
+            patch("walkie_grotkie.voice_chat._print_help") as mock_help,
         ):
             await _voice_loop(console, session, controller, recorder, "test-key", "nova")
 
@@ -331,7 +331,7 @@ class TestVoiceLoopCommandMode:
     @pytest.mark.asyncio
     async def test_voice_command_changes_voice(self, tmp_path: Path):
         """'/voice shimmer' command must switch the active TTS voice."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, _ = _make_controller(tmp_path)
         session = MagicMock()
@@ -356,10 +356,10 @@ class TestVoiceLoopCommandMode:
             return next(command_inputs)
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
-            patch("idotmatrix_upload.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
         ):
             try:
                 await _voice_loop(
@@ -375,7 +375,7 @@ class TestVoiceLoopCommandMode:
     @pytest.mark.asyncio
     async def test_unknown_command_prints_error_message(self, tmp_path: Path):
         """Unrecognised slash commands show a useful message."""
-        from idotmatrix_upload.voice_chat import _voice_loop
+        from walkie_grotkie.voice_chat import _voice_loop
 
         controller, _ = _make_controller(tmp_path)
         session = MagicMock()
@@ -399,10 +399,10 @@ class TestVoiceLoopCommandMode:
             return next(command_inputs)
 
         with (
-            patch("idotmatrix_upload.voice_chat.disable_terminal_echo", return_value=[]),
-            patch("idotmatrix_upload.voice_chat.restore_terminal"),
-            patch("idotmatrix_upload.voice_chat.flush_stdin"),
-            patch("idotmatrix_upload.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
+            patch("walkie_grotkie.voice_chat.disable_terminal_echo", return_value=[]),
+            patch("walkie_grotkie.voice_chat.restore_terminal"),
+            patch("walkie_grotkie.voice_chat.flush_stdin"),
+            patch("walkie_grotkie.voice_chat.asyncio.to_thread", side_effect=fake_to_thread),
         ):
             try:
                 await _voice_loop(console, session, controller, recorder, "test-key", "nova")
@@ -422,7 +422,7 @@ class TestWaitForInput:
     @pytest.mark.asyncio
     async def test_thinking_transition_on_space(self, tmp_path: Path):
         """Pressing spacebar starts THINKING animation before recording."""
-        from idotmatrix_upload.voice_chat import _wait_for_input
+        from walkie_grotkie.voice_chat import _wait_for_input
 
         controller, transitions = _make_controller(tmp_path)
         console = MagicMock()
@@ -435,7 +435,7 @@ class TestWaitForInput:
 
         recorder.wait_for_input = fake_wait_for_input
 
-        with patch("idotmatrix_upload.voice_chat.asyncio.get_event_loop") as mock_loop:
+        with patch("walkie_grotkie.voice_chat.asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.create_task = lambda coro, **kwargs: asyncio.ensure_future(coro)
             await _wait_for_input(console, controller, recorder)
             await asyncio.sleep(0.05)  # let background task run
@@ -445,7 +445,7 @@ class TestWaitForInput:
     @pytest.mark.asyncio
     async def test_command_returns_none(self, tmp_path: Path):
         """A '/' keypress in _wait_for_input propagates None."""
-        from idotmatrix_upload.voice_chat import _wait_for_input
+        from walkie_grotkie.voice_chat import _wait_for_input
 
         controller, _ = _make_controller(tmp_path)
         console = MagicMock()

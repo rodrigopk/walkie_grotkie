@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 
-from idotmatrix_upload.voice import (
+from walkie_grotkie.voice import (
     CHANNELS,
     SAMPLE_RATE,
     _frames_to_wav,
@@ -97,8 +97,8 @@ class TestPlayAudioSync:
     def test_calls_sd_play_and_wait(self):
         wav = self._make_wav()
         with (
-            patch("idotmatrix_upload.voice.sd.play") as mock_play,
-            patch("idotmatrix_upload.voice.sd.wait") as mock_wait,
+            patch("walkie_grotkie.voice.sd.play") as mock_play,
+            patch("walkie_grotkie.voice.sd.wait") as mock_wait,
         ):
             _play_audio_sync(wav)
             mock_play.assert_called_once()
@@ -107,8 +107,8 @@ class TestPlayAudioSync:
     def test_play_called_with_correct_sample_rate(self):
         wav = self._make_wav()
         with (
-            patch("idotmatrix_upload.voice.sd.play") as mock_play,
-            patch("idotmatrix_upload.voice.sd.wait"),
+            patch("walkie_grotkie.voice.sd.play") as mock_play,
+            patch("walkie_grotkie.voice.sd.wait"),
         ):
             _play_audio_sync(wav)
             _, kwargs = mock_play.call_args
@@ -124,8 +124,8 @@ class TestPlayAudioSync:
             played_array = arr
 
         with (
-            patch("idotmatrix_upload.voice.sd.play", side_effect=capture_play),
-            patch("idotmatrix_upload.voice.sd.wait"),
+            patch("walkie_grotkie.voice.sd.play", side_effect=capture_play),
+            patch("walkie_grotkie.voice.sd.wait"),
         ):
             _play_audio_sync(wav)
 
@@ -151,7 +151,7 @@ class TestPlayAudio:
             wf.writeframes(b"\x00" * 1024)
         wav = buf.getvalue()
 
-        with patch("idotmatrix_upload.voice._play_audio_sync") as mock_sync:
+        with patch("walkie_grotkie.voice._play_audio_sync") as mock_sync:
             await play_audio(wav)
             mock_sync.assert_called_once_with(wav)
 
@@ -173,7 +173,7 @@ class TestPlayAudio:
             await asyncio.sleep(0)
             side_task_ran = True
 
-        with patch("idotmatrix_upload.voice._play_audio_sync"):
+        with patch("walkie_grotkie.voice._play_audio_sync"):
             await asyncio.gather(play_audio(wav), side_task())
 
         assert side_task_ran
@@ -186,7 +186,7 @@ class TestPlayAudio:
 
 def _make_recorder_with_fresh_events():
     """Return a PushToTalkRecorder with fresh asyncio Events (no listener started)."""
-    from idotmatrix_upload.voice import PushToTalkRecorder
+    from walkie_grotkie.voice import PushToTalkRecorder
     recorder = PushToTalkRecorder()
     recorder._press_event = asyncio.Event()
     recorder._release_event = asyncio.Event()
@@ -259,7 +259,7 @@ class TestPushToTalkRecorder:
         def make_stream(**kwargs):
             return _CallbackInputStream(sample_frames, **kwargs)
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", make_stream):
+        with patch("walkie_grotkie.voice.sd.InputStream", make_stream):
             wav_bytes, _ = await asyncio.gather(
                 recorder.wait_and_record(),
                 _trigger_events(recorder),
@@ -275,7 +275,7 @@ class TestPushToTalkRecorder:
         recorder = _make_recorder_with_fresh_events()
         called = []
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+        with patch("walkie_grotkie.voice.sd.InputStream", _NoOpInputStream):
             await asyncio.gather(
                 recorder.wait_and_record(on_listening=lambda: called.append(True)),
                 _trigger_events(recorder),
@@ -288,7 +288,7 @@ class TestPushToTalkRecorder:
         recorder = _make_recorder_with_fresh_events()
         stopped = []
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+        with patch("walkie_grotkie.voice.sd.InputStream", _NoOpInputStream):
             await asyncio.gather(
                 recorder.wait_and_record(on_recording_stop=lambda: stopped.append(True)),
                 _trigger_events(recorder),
@@ -312,7 +312,7 @@ class TestWaitForInput:
         def make_stream(**kwargs):
             return _CallbackInputStream(sample_frames, **kwargs)
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", make_stream):
+        with patch("walkie_grotkie.voice.sd.InputStream", make_stream):
             result, _ = await asyncio.gather(
                 recorder.wait_for_input(),
                 _trigger_space(recorder),
@@ -339,7 +339,7 @@ class TestWaitForInput:
         recorder = _make_recorder_with_fresh_events()
         called = []
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+        with patch("walkie_grotkie.voice.sd.InputStream", _NoOpInputStream):
             await asyncio.gather(
                 recorder.wait_for_input(on_listening=lambda: called.append(True)),
                 _trigger_space(recorder),
@@ -366,7 +366,7 @@ class TestWaitForInput:
         recorder = _make_recorder_with_fresh_events()
         stopped = []
 
-        with patch("idotmatrix_upload.voice.sd.InputStream", _NoOpInputStream):
+        with patch("walkie_grotkie.voice.sd.InputStream", _NoOpInputStream):
             await asyncio.gather(
                 recorder.wait_for_input(on_recording_stop=lambda: stopped.append(True)),
                 _trigger_space(recorder),
@@ -403,18 +403,18 @@ class TestWaitForInput:
 class TestTerminalEchoHelpers:
     def test_disable_returns_list(self):
         """disable_terminal_echo should return a list (old settings or empty)."""
-        from idotmatrix_upload.voice import disable_terminal_echo
+        from walkie_grotkie.voice import disable_terminal_echo
         result = disable_terminal_echo()
         assert isinstance(result, list)
 
     def test_restore_with_empty_list_is_noop(self):
         """restore_terminal([]) must not raise even without termios support."""
-        from idotmatrix_upload.voice import restore_terminal
+        from walkie_grotkie.voice import restore_terminal
         restore_terminal([])
 
     def test_disable_and_restore_roundtrip(self):
         """Calling disable then restore should not raise on any supported platform."""
-        from idotmatrix_upload.voice import disable_terminal_echo, restore_terminal
+        from walkie_grotkie.voice import disable_terminal_echo, restore_terminal
         old = disable_terminal_echo()
         restore_terminal(old)
 
@@ -425,8 +425,8 @@ class TestTerminalEchoHelpers:
 
         fake_old = [object()]
         with (
-            patch("idotmatrix_upload.voice.restore_terminal") as mock_restore,
+            patch("walkie_grotkie.voice.restore_terminal") as mock_restore,
         ):
-            from idotmatrix_upload.voice import restore_terminal
+            from walkie_grotkie.voice import restore_terminal
             mock_restore(fake_old)
             mock_restore.assert_called_once_with(fake_old)

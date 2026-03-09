@@ -47,7 +47,7 @@ export OPENAI_API_KEY="sk-..."
 # 3. Start the Python WebSocket server in one terminal
 cd ..
 source .venv/bin/activate
-idotmatrix-upload serve --port 8765
+walkie-grotkie serve --port 8765
 
 # 4. In another terminal, launch the Tauri app
 cd walkie-talkie

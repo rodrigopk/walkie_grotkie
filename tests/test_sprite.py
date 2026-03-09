@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from idotmatrix_upload.sprite import GROT_PNG, Sprite
+from walkie_grotkie.sprite import GROT_PNG, Sprite
 
 
 def _make_test_png(tmp_path: Path, size: int = 8) -> Path:

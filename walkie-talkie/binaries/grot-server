@@ -6,7 +6,7 @@
 # build-sidecar.sh).
 #
 # Usage: grot-server [--port PORT] [--api-key KEY] [...]
-#   All arguments are passed through to `idotmatrix-upload serve`.
+#   All arguments are passed through to `walkie-grotkie serve`.
 
 set -euo pipefail
 
@@ -36,4 +36,10 @@ if [[ -n "$_PIDS" ]]; then
     sleep 0.5
 fi
 
-exec python -m idotmatrix_upload serve "$@"
+# Prefer the venv's console script; fall back to finding it on PATH.
+WALKIE_CMD="${PROJECT_ROOT}/.venv/bin/walkie-grotkie"
+if [[ ! -x "${WALKIE_CMD}" ]]; then
+    WALKIE_CMD="$(command -v walkie-grotkie)"
+fi
+
+exec "${WALKIE_CMD}" serve "$@"

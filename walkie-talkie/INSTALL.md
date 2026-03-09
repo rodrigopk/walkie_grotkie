@@ -68,8 +68,8 @@ pip install -e ".[voice]"
 Verify the install:
 
 ```bash
-idotmatrix-upload --version
-idotmatrix-upload serve --help
+walkie-grotkie --version
+walkie-grotkie serve --help
 ```
 
 ---
@@ -146,16 +146,16 @@ Open two terminals.
 **Terminal 1 — Python WebSocket server:**
 
 ```bash
-cd /path/to/idotmatrix_upload
+cd /path/to/walkie-grotkie
 source .venv/bin/activate
 export OPENAI_API_KEY="sk-..."
-idotmatrix-upload serve --port 8765
+walkie-grotkie serve --port 8765
 ```
 
 **Terminal 2 — Tauri app:**
 
 ```bash
-cd /path/to/idotmatrix_upload/walkie-talkie
+cd /path/to/walkie-grotkie/walkie-talkie
 cargo tauri dev
 ```
 
@@ -167,7 +167,7 @@ walkie-talkie window. Changes to React source files hot-reload automatically.
 If you don't have a device but still want to test the UI + voice pipeline:
 
 ```bash
-idotmatrix-upload serve --port 8765 --no-cache
+walkie-grotkie serve --port 8765 --no-cache
 ```
 
 The server will fail to find a BLE device and send an error message to the
@@ -225,7 +225,7 @@ is required on the end user's machine.
 - The device must be named with the `IDM-` prefix.
 - On Linux, ensure the user is in the `bluetooth` group and BlueZ is running.
 - Pass the device address directly to skip scanning:
-  `idotmatrix-upload serve --device-addr AA:BB:CC:DD:EE:FF`
+  `walkie-grotkie serve --device-addr AA:BB:CC:DD:EE:FF`
 
 ### WebView2 not found (Windows)
 
@@ -256,6 +256,6 @@ system Python.
 lsof -i :8765
 
 # Or start the server on a different port and update the frontend constant
-idotmatrix-upload serve --port 9000
+walkie-grotkie serve --port 9000
 # Then change WS_URL in walkie-talkie/src/App.tsx to "ws://localhost:9000"
 ```

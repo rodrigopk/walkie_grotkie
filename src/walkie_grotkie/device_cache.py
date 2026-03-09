@@ -12,7 +12,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_PATH = Path("~/.config/idotmatrix/devices.json").expanduser()
+DEFAULT_CACHE_PATH = Path("~/.config/walkie-grotkie/devices.json").expanduser()
 MAX_CACHED_DEVICES = 10
 
 

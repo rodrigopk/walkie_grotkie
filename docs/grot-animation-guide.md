@@ -45,8 +45,8 @@ both the frame PNGs and the assembled GIF.
 ```python
 import math
 from pathlib import Path
-from idotmatrix_upload.sprite import Sprite, GROT_PNG
-from idotmatrix_upload.generate import assemble_gif_from_frames
+from walkie_grotkie.sprite import Sprite, GROT_PNG
+from walkie_grotkie.generate import assemble_gif_from_frames
 ```
 
 - `Sprite.from_png(path)` — loads a PNG, extracts opaque pixels (alpha > 0),
@@ -129,7 +129,7 @@ y_offset = -round(ease_in_out(jump_phase) * JUMP_HEIGHT)
 **Option A — direct Python call** (recommended when the script generates the frames):
 
 ```python
-from idotmatrix_upload.generate import assemble_gif_from_frames
+from walkie_grotkie.generate import assemble_gif_from_frames
 
 frame_paths = sorted(frames_dir.glob("*.png"))
 assemble_gif_from_frames(frame_paths, Path("output/animation.gif"), fps=20)
@@ -138,7 +138,7 @@ assemble_gif_from_frames(frame_paths, Path("output/animation.gif"), fps=20)
 **Option B — CLI** (useful when frames already exist on disk):
 
 ```bash
-idotmatrix-upload assemble-gif ./frames -o animation.gif --fps 20
+walkie-grotkie assemble-gif ./frames -o animation.gif --fps 20
 ```
 
 Options: `-o` (required) output path, `--fps` (default 20), `--loop` (default
@@ -152,8 +152,8 @@ horizontally on each landing. 2 seconds at 20 fps."*
 ```python
 import math
 from pathlib import Path
-from idotmatrix_upload.sprite import Sprite, GROT_PNG
-from idotmatrix_upload.generate import assemble_gif_from_frames
+from walkie_grotkie.sprite import Sprite, GROT_PNG
+from walkie_grotkie.generate import assemble_gif_from_frames
 
 sprite = Sprite.from_png(GROT_PNG)
 frames_dir = Path("output/grot-jump-flip/frames")
@@ -183,9 +183,9 @@ Run with: `python3 scripts/my_animation.py`
 Optionally resize for iDotMatrix upload:
 
 ```bash
-idotmatrix-upload assemble-gif output/grot-jump-flip/frames \
+walkie-grotkie assemble-gif output/grot-jump-flip/frames \
   -o output/grot-jump-flip/grot-32.gif --fps 20 --size 32x32
-idotmatrix-upload upload output/grot-jump-flip/grot-32.gif
+walkie-grotkie upload output/grot-jump-flip/grot-32.gif
 ```
 
 ---

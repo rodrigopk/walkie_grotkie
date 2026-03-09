@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from idotmatrix_upload.animations import AnimationState
-from idotmatrix_upload.chat import (
+from walkie_grotkie.animations import AnimationState
+from walkie_grotkie.chat import (
     _EXIT_COMMANDS,
     _SLASH_COMMANDS,
     extract_mood,

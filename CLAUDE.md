@@ -2,7 +2,7 @@
 
 ## Project
 
-iDotMatrix GIF Upload — CLI tool for uploading GIF animations to iDotMatrix
+Walkie-Grotkie — CLI tool for uploading GIF animations to iDotMatrix
 LED matrix devices over BLE.
 
 ## Stack
@@ -14,11 +14,11 @@ LED matrix devices over BLE.
 
 - Install deps: `pip install -e ".[dev]"`
 - Run tests: `pytest -v`
-- Run the tool: `python -m idotmatrix_upload <gif_path>`
+- Run the tool: `walkie-grotkie <gif_path>`
 
 ## Code layout
 
-- `src/idotmatrix_upload/` — production code
+- `src/walkie_grotkie/` — production code
 - `tests/` — test suite
 - `docs/plans/` — design docs (not committed)
 

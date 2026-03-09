@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from idotmatrix_upload.cli import main, _parse_size
+from walkie_grotkie.cli import main, _parse_size
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ class TestUploadCommand:
         gif = tmp_path / "test.gif"
         gif.write_bytes(b"GIF89a" + b"\x00" * 100)
 
-        with patch("idotmatrix_upload.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(main, ["upload", str(gif), "--no-preprocess"])
 
@@ -80,7 +80,7 @@ class TestUploadCommand:
         assert "Invalid size" in result.output
 
     def test_validation_error_exits_one(self, tmp_path: Path):
-        from idotmatrix_upload.preprocess import ValidationError
+        from walkie_grotkie.preprocess import ValidationError
 
         runner = CliRunner()
         gif = tmp_path / "test.gif"
@@ -89,21 +89,21 @@ class TestUploadCommand:
         def raise_validation(*args, **kwargs):
             raise ValidationError([(gif, "not a valid GIF")])
 
-        with patch("idotmatrix_upload.cli.asyncio.run", side_effect=raise_validation):
+        with patch("walkie_grotkie.cli.asyncio.run", side_effect=raise_validation):
             result = runner.invoke(main, ["upload", str(gif)])
 
         assert result.exit_code == 1
         assert "Error:" in result.output
 
     def test_ble_connection_error_exits_two(self, tmp_path: Path):
-        from idotmatrix_upload.ble import BLEConnectionError
+        from walkie_grotkie.ble import BLEConnectionError
 
         runner = CliRunner()
         gif = tmp_path / "test.gif"
         gif.write_bytes(b"GIF89a" + b"\x00" * 100)
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=BLEConnectionError("no device"),
         ):
             result = runner.invoke(main, ["upload", str(gif)])
@@ -112,14 +112,14 @@ class TestUploadCommand:
         assert "Device error:" in result.output
 
     def test_upload_error_exits_two(self, tmp_path: Path):
-        from idotmatrix_upload.upload import UploadError
+        from walkie_grotkie.upload import UploadError
 
         runner = CliRunner()
         gif = tmp_path / "test.gif"
         gif.write_bytes(b"GIF89a" + b"\x00" * 100)
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=UploadError("chunk failed"),
         ):
             result = runner.invoke(main, ["upload", str(gif)])
@@ -143,7 +143,7 @@ class TestUploadCommand:
                     pass
             asyncio.run(_drain())
 
-        with patch("idotmatrix_upload.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(
                 main,
@@ -160,7 +160,7 @@ class TestUploadCommand:
         gif = tmp_path / "test.gif"
         gif.write_bytes(b"GIF89a" + b"\x00" * 100)
 
-        with patch("idotmatrix_upload.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(main, ["upload", str(gif), "--no-preprocess"])
 
@@ -172,7 +172,7 @@ class TestUploadCommand:
         gif = tmp_path / "test.gif"
         gif.write_bytes(b"GIF89a" + b"\x00" * 100)
 
-        with patch("idotmatrix_upload.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.upload.upload_gifs", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(main, ["upload", str(gif), "--no-cache", "--no-preprocess"])
 
@@ -188,7 +188,7 @@ class TestUploadCommand:
 class TestGenerateCommand:
     def test_success_exits_zero(self, tmp_path: Path):
         runner = CliRunner()
-        with patch("idotmatrix_upload.generate.generate_spinning_number_gif") as mock_gen:
+        with patch("walkie_grotkie.generate.generate_spinning_number_gif") as mock_gen:
             fake_path = tmp_path / "number_01.gif"
             fake_path.write_bytes(b"GIF89a")
             mock_gen.return_value = fake_path
@@ -207,7 +207,7 @@ class TestGenerateCommand:
 
 class TestPreprocessCommand:
     def test_success_exits_zero(self, tmp_path: Path):
-        from idotmatrix_upload.preprocess import PreprocessResult
+        from walkie_grotkie.preprocess import PreprocessResult
 
         runner = CliRunner()
         gif = tmp_path / "test.gif"
@@ -224,7 +224,7 @@ class TestPreprocessCommand:
             frame_count=3,
         )
 
-        with patch("idotmatrix_upload.preprocess.preprocess_batch", return_value=[fake_result]):
+        with patch("walkie_grotkie.preprocess.preprocess_batch", return_value=[fake_result]):
             result = runner.invoke(
                 main, ["preprocess", str(gif), "--output-dir", str(out_dir)]
             )
@@ -233,7 +233,7 @@ class TestPreprocessCommand:
         assert "Preprocessed" in result.output
 
     def test_validation_error_exits_one(self, tmp_path: Path):
-        from idotmatrix_upload.preprocess import ValidationError
+        from walkie_grotkie.preprocess import ValidationError
 
         runner = CliRunner()
         gif = tmp_path / "test.gif"
@@ -241,7 +241,7 @@ class TestPreprocessCommand:
         out_dir = tmp_path / "processed"
 
         with patch(
-            "idotmatrix_upload.preprocess.preprocess_batch",
+            "walkie_grotkie.preprocess.preprocess_batch",
             side_effect=ValidationError([(gif, "bad format")]),
         ):
             result = runner.invoke(
@@ -278,7 +278,7 @@ class TestAssembleGifCommand:
 
         out = tmp_path / "out.gif"
 
-        with patch("idotmatrix_upload.generate.assemble_gif_from_frames") as mock_asm:
+        with patch("walkie_grotkie.generate.assemble_gif_from_frames") as mock_asm:
             mock_asm.return_value = out
             out.write_bytes(b"GIF89a" + b"\x00" * 50)
             result = runner.invoke(
@@ -323,7 +323,7 @@ class TestChatCommand:
         anim_dir = tmp_path / "grot_animations"
         anim_dir.mkdir()
 
-        with patch("idotmatrix_upload.chat.run_chat", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.chat.run_chat", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(
                 main,
@@ -337,14 +337,14 @@ class TestChatCommand:
         assert result.exit_code == 0
 
     def test_ble_error_exits_two(self, tmp_path: Path):
-        from idotmatrix_upload.ble import BLEConnectionError
+        from walkie_grotkie.ble import BLEConnectionError
 
         runner = CliRunner()
         anim_dir = tmp_path / "grot_animations"
         anim_dir.mkdir()
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=BLEConnectionError("no device"),
         ):
             result = runner.invoke(
@@ -364,7 +364,7 @@ class TestChatCommand:
         anim_dir.mkdir()
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=KeyboardInterrupt,
         ):
             result = runner.invoke(
@@ -404,7 +404,7 @@ class TestVoiceChatCommand:
         anim_dir = tmp_path / "grot_animations"
         anim_dir.mkdir()
 
-        with patch("idotmatrix_upload.voice_chat.run_voice_chat", new_callable=AsyncMock) as mock_fn:
+        with patch("walkie_grotkie.voice_chat.run_voice_chat", new_callable=AsyncMock) as mock_fn:
             mock_fn.return_value = None
             result = runner.invoke(
                 main,
@@ -418,14 +418,14 @@ class TestVoiceChatCommand:
         assert result.exit_code == 0
 
     def test_ble_error_exits_two(self, tmp_path: Path):
-        from idotmatrix_upload.ble import BLEConnectionError
+        from walkie_grotkie.ble import BLEConnectionError
 
         runner = CliRunner()
         anim_dir = tmp_path / "grot_animations"
         anim_dir.mkdir()
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=BLEConnectionError("no device"),
         ):
             result = runner.invoke(
@@ -445,7 +445,7 @@ class TestVoiceChatCommand:
         anim_dir.mkdir()
 
         with patch(
-            "idotmatrix_upload.cli.asyncio.run",
+            "walkie_grotkie.cli.asyncio.run",
             side_effect=KeyboardInterrupt,
         ):
             result = runner.invoke(

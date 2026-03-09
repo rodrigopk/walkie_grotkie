@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from idotmatrix_upload.device_cache import (
+from walkie_grotkie.device_cache import (
     MAX_CACHED_DEVICES,
     add_to_cache,
     load_cache,
