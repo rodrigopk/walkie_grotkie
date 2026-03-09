@@ -20,7 +20,7 @@ For voice chat you also need a working microphone and speakers/headphones.
 Clone the repo and install in editable mode:
 
 ```bash
-git clone https://github.com/<your-user>/walkie-grotkie.git
+git clone https://github.com/rodrigopk/walkie-grotkie.git
 cd walkie-grotkie
 ```
 
