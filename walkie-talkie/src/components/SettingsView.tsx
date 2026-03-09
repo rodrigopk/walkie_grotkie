@@ -2,7 +2,6 @@ import { useState } from "react";
 
 interface SettingsViewProps {
   onSave: (key: string) => void;
-  onCancel: () => void;
   initialKey?: string;
 }
 
@@ -12,7 +11,6 @@ interface SettingsViewProps {
  */
 export default function SettingsView({
   onSave,
-  onCancel,
   initialKey = "",
 }: SettingsViewProps) {
   const [key, setKey] = useState(initialKey);

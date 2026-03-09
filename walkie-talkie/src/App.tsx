@@ -426,7 +426,6 @@ export default function App() {
         return (
           <SettingsView
             onSave={(key) => void handleSaveKey(key)}
-            onCancel={handleGoHome}
             initialKey={apiKey}
           />
         );
