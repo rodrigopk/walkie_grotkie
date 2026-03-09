@@ -43,39 +43,98 @@ pip install -e ".[dev]"
 pip install -e ".[chat,voice,dev]"
 ```
 
-## Quick start
+---
 
-### Upload a GIF
+## Walkie-Talkie app
 
-```bash
-walkie-grotkie upload path/to/animation.gif
-```
+The `walkie-talkie/` directory contains a **Tauri 2** desktop app — the primary
+way to interact with Grot. Press and hold the big button to speak; the LED
+display shows transcriptions, responses, and status messages in real time.
 
-Upload multiple GIFs in one go:
+Architecture: Tauri window (React webview) communicates with the Python
+voice-chat pipeline over a local WebSocket. The Python server runs as a bundled
+sidecar — no separate terminal or manual server startup needed.
 
-```bash
-walkie-grotkie upload anim1.gif anim2.gif anim3.gif --delay 2.0
-```
-
-Skip the BLE scan by passing a known device address:
+### Quick start (development)
 
 ```bash
-walkie-grotkie upload animation.gif --device-addr "AA:BB:CC:DD:EE:FF"
+cd walkie-talkie
+npm install
+./build-sidecar.sh    # builds the Python sidecar binary (once, or after Python changes)
+cargo tauri dev
 ```
 
-### Text chat with Grot
+On first launch, the app will prompt you for your OpenAI API key via the
+Settings screen. The key is validated and stored locally — no environment
+variables required.
+
+### Build and install (macOS DMG)
+
+Building a distributable `.dmg` requires Rust, Node.js, the Tauri CLI, and
+Xcode Command Line Tools.
+
+#### 1. Install build prerequisites
+
+```bash
+# Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+
+# Tauri CLI
+cargo install tauri-cli --version "^2"
+
+# Xcode Command Line Tools
+xcode-select --install
+```
+
+#### 2. Build the Python sidecar
+
+From the `walkie-talkie/` directory:
+
+```bash
+cd walkie-talkie
+./build-sidecar.sh
+```
+
+This produces `src-tauri/binaries/grot-server-<target-triple>` — the bundled
+Python server that ships inside the app.
+
+#### 3. Package the app
+
+```bash
+cargo tauri build
+```
+
+The `.dmg` and `.app` are written to:
+
+```
+walkie-talkie/src-tauri/target/release/bundle/dmg/
+```
+
+#### 4. Install
+
+Open the `.dmg`, drag **Grot Walkie-Talkie** to `/Applications`, and launch it.
+No Python or Node.js installation is required on the end user's machine — the
+sidecar is self-contained.
+
+See [`walkie-talkie/INSTALL.md`](walkie-talkie/INSTALL.md) for Windows/Linux
+equivalents and troubleshooting.
+
+---
+
+## Text chat with Grot
 
 Chat with an AI character powered by Claude that controls live animations on
 your iDotMatrix device. Grot reacts to the conversation — thinking, talking,
 dancing, sleeping, and more.
 
-#### 1. Get an Anthropic API key
+### 1. Get an Anthropic API key
 
 1. Go to <https://console.anthropic.com/settings/keys>
 2. Create a new API key
 3. Copy the key (starts with `sk-ant-...`)
 
-#### 2. Set the key
+### 2. Set the key
 
 Copy the example env file and fill in your key:
 
@@ -92,7 +151,7 @@ Or export it directly in your shell:
 export ANTHROPIC_API_KEY="sk-ant-your-actual-key-here"
 ```
 
-#### 3. Start chatting
+### 3. Start chatting
 
 ```bash
 walkie-grotkie chat
@@ -119,7 +178,7 @@ Available commands:
 You: /exit
 ```
 
-#### Chat options
+### Chat options
 
 | Flag | Default | Description |
 |---|---|---|
@@ -130,25 +189,30 @@ You: /exit
 | `--no-cache` | | Skip device address cache |
 | `-d, --debug` | | Write debug logs to `grot-chat.log` |
 
-### Voice chat with Grot
+---
 
-Talk to Grot with your voice. Hold **Space** to speak, release to send. Your
-speech is transcribed with Whisper, answered by GPT-4o, and spoken back via
-OpenAI TTS — all while Grot's animations sync to the conversation.
+## Voice chat with Grot (legacy CLI)
 
-#### 1. Get an OpenAI API key
+Talk to Grot with your voice from the terminal. Hold **Space** to speak,
+release to send. Your speech is transcribed with Whisper, answered by GPT-4o,
+and spoken back via OpenAI TTS — all while Grot's animations sync to the
+conversation.
+
+> **Tip:** For a nicer experience use the [Walkie-Talkie app](#walkie-talkie-app) above.
+
+### 1. Get an OpenAI API key
 
 1. Go to <https://platform.openai.com/api-keys>
 2. Create a new API key
 3. Copy the key (starts with `sk-...`)
 
-#### 2. Set the key
+### 2. Set the key
 
 ```bash
 export OPENAI_API_KEY="sk-your-openai-key-here"
 ```
 
-#### 3. Start talking
+### 3. Start talking
 
 ```bash
 walkie-grotkie voice-chat
@@ -170,7 +234,7 @@ You: "Show me a dance!"
 Grot (speaking): "Watch this!" *dancing*
 ```
 
-#### Voice chat options
+### Voice chat options
 
 | Flag | Default | Description |
 |---|---|---|
@@ -181,6 +245,8 @@ Grot (speaking): "Watch this!" *dancing*
 | `--temperature N` | `0.7` | Sampling temperature (0–2) |
 | `--no-cache` | | Skip device address cache |
 | `-d, --debug` | | Write debug logs to `grot-voice-chat.log` |
+
+---
 
 ## Other commands
 
@@ -214,30 +280,6 @@ Resize during assembly:
 walkie-grotkie assemble-gif frames_dir/ -o output.gif --fps 12 --size 64x64
 ```
 
-## Walkie-talkie UI
-
-The `walkie-talkie/` directory contains a **Tauri 2** desktop app that
-provides a retro walkie-talkie interface for the Grot voice-chat. Press and
-hold the big button to talk; an LED display shows transcriptions, responses,
-and status messages.
-
-Architecture: Tauri window (React webview) communicates with the Python
-voice-chat pipeline over a local WebSocket. The Python process runs as a
-Tauri sidecar, so no separate terminal is needed in production builds.
-
-```bash
-cd walkie-talkie
-npm install
-# In a separate terminal start the Python server:
-source .venv/bin/activate walkie-grotkie serve --port 8765
-# Then launch the Tauri app:
-cargo tauri dev
-```
-
-See [`walkie-talkie/README.md`](walkie-talkie/README.md) for full setup
-instructions and [`walkie-talkie/INSTALL.md`](walkie-talkie/INSTALL.md) for
-OS-specific requirements.
-
 ## Pixel art editor
 
 The `pixel-art-editor/` directory contains a browser-based 64×64 pixel art
@@ -263,6 +305,31 @@ python tools/ble_explore.py [DEVICE_ADDR]
 # Probe upload and OTA characteristics
 python tools/ble_probe.py [DEVICE_ADDR]
 ```
+
+---
+
+## Upload script
+
+Upload GIF animations directly to the device over BLE — the original core
+feature of this tool.
+
+```bash
+walkie-grotkie upload path/to/animation.gif
+```
+
+Upload multiple GIFs in one go:
+
+```bash
+walkie-grotkie upload anim1.gif anim2.gif anim3.gif --delay 2.0
+```
+
+Skip the BLE scan by passing a known device address:
+
+```bash
+walkie-grotkie upload animation.gif --device-addr "AA:BB:CC:DD:EE:FF"
+```
+
+---
 
 ## Development
 
