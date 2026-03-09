@@ -38,6 +38,9 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "externalBin": ["binaries/grot-server"]
+    "externalBin": ["binaries/grot-server"],
+    "macOS": {
+      "entitlements": "./Entitlements.plist"
+    }
   }
 }

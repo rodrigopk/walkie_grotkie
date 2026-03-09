@@ -3,6 +3,8 @@ import { useCallback, useRef, useState } from "react";
 export interface UseAudioRecorderReturn {
   isRecording: boolean;
   isSupported: boolean;
+  /** True when getUserMedia was denied by the OS or user (NotAllowedError). */
+  permissionDenied: boolean;
   startRecording: () => Promise<void>;
   /** Stops recording and resolves with a base64-encoded WAV string. */
   stopRecording: () => Promise<string>;
@@ -32,6 +34,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       typeof navigator.mediaDevices !== "undefined" &&
       typeof window.AudioContext !== "undefined"
   );
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -48,8 +51,12 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         audio: { sampleRate: SAMPLE_RATE, channelCount: NUM_CHANNELS },
         video: false,
       });
-    } catch {
-      setIsSupported(false);
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "NotAllowedError") {
+        setPermissionDenied(true);
+      } else {
+        setIsSupported(false);
+      }
       return;
     }
 
@@ -112,7 +119,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     });
   }, [isRecording]);
 
-  return { isRecording, isSupported, startRecording, stopRecording };
+  return { isRecording, isSupported, permissionDenied, startRecording, stopRecording };
 }
 
 // ---------------------------------------------------------------------------

@@ -466,19 +466,24 @@ export default function App() {
     />
   );
 
-  // ── Microphone not available ──────────────────────────────────
-  if (!recorder.isSupported) {
+  // ── Microphone permission denied or unavailable ───────────────
+  if (recorder.permissionDenied || !recorder.isSupported) {
+    const errorLines: DisplayLine[] = recorder.permissionDenied
+      ? [
+          { id: "err1", text: "Microphone access denied.", variant: "error" },
+          { id: "err2", text: "Allow access in System", variant: "error" },
+          { id: "err3", text: "Settings > Privacy >" , variant: "error" },
+          { id: "err4", text: "Microphone.", variant: "error" },
+        ]
+      : [
+          { id: "err1", text: "Microphone not available.", variant: "error" },
+          { id: "err2", text: "Check that a microphone", variant: "error" },
+          { id: "err3", text: "is connected.", variant: "error" },
+        ];
+
     return (
       <WalkieTalkie onQuit={() => void handleQuit()}>
-        <LEDDisplay
-          lines={[
-            {
-              id: "err",
-              text: "Microphone not available. Check browser permissions.",
-              variant: "error",
-            },
-          ]}
-        />
+        <LEDDisplay lines={errorLines} />
         <div className="buttons-container">
           <div className="ptt-outer">
             <PushToTalkButton
