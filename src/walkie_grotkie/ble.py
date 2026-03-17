@@ -67,6 +67,31 @@ class DeviceConnection:
                 f"Make sure the device is still connected and in range."
             ) from exc
 
+    async def subscribe_notifications(
+        self,
+        on_notification: Callable[[bytes], Awaitable[None] | None],
+    ) -> None:
+        """Subscribe to device notifications on an already-open connection.
+
+        Args:
+            on_notification: Async or sync callback for notifications on NOTIFY_UUID.
+
+        Raises:
+            BLEConnectionError: If subscription fails.
+        """
+        try:
+            def _notification_handler(_sender: int, data: bytearray) -> None:
+                result = on_notification(bytes(data))
+                if asyncio.iscoroutine(result):
+                    asyncio.ensure_future(result)
+
+            await self._client.start_notify(NOTIFY_UUID, _notification_handler)
+            logger.info("Subscribed to notifications on %s", NOTIFY_UUID)
+        except (BleakError, OSError) as exc:
+            raise BLEConnectionError(
+                f"Failed to subscribe to notifications on {self.address}: {exc}."
+            ) from exc
+
     async def disconnect(self) -> None:
         """Disconnect from the device. Safe to call multiple times."""
         try:
