@@ -62,7 +62,8 @@ class DeviceService:
         """Resolve the device address and establish a BLE connection.
 
         Resolution order when no explicit address was provided:
-        1. Probe cached addresses for a reachable device.
+        1. Probe cached addresses for a reachable device (reusing the
+           probe connection to avoid a redundant second handshake).
         2. Fall back to a BLE scan filtered by the name prefix.
 
         Raises:
@@ -71,12 +72,16 @@ class DeviceService:
         if self._connection is not None:
             return
 
-        address = await self._resolve_device()
+        address, cached_conn = await self._resolve_device()
 
-        self._connection = await ble.connect(
-            address,
-            on_notification=self._on_notification,
-        )
+        if cached_conn is not None:
+            await cached_conn.subscribe_notifications(self._on_notification)
+            self._connection = cached_conn
+        else:
+            self._connection = await ble.connect(
+                address,
+                on_notification=self._on_notification,
+            )
 
         if self._use_cache:
             add_to_cache(address)
@@ -191,11 +196,18 @@ class DeviceService:
         self._ack_result = protocol.parse_ack(data)
         self._ack_event.set()
 
-    async def _resolve_device(self) -> str:
-        """Return a usable BLE address via explicit address, cache, or scan."""
+    async def _resolve_device(self) -> tuple[str, ble.DeviceConnection | None]:
+        """Return a usable BLE address via explicit address, cache, or scan.
+
+        Returns:
+            A ``(address, connection)`` tuple.  When the address was found via
+            the cache, *connection* is the already-open probe connection so the
+            caller can reuse it instead of connecting a second time.  In all
+            other cases *connection* is ``None``.
+        """
         if self._device_address is not None:
             logger.info("Using explicit device address: %s", self._device_address)
-            return self._device_address
+            return self._device_address, None
 
         if self._use_cache:
             cached = load_cache()
@@ -203,9 +215,8 @@ class DeviceService:
                 logger.info("Trying cached device %s ...", addr)
                 try:
                     probe = await ble.connect(addr, timeout=3.0)
-                    await probe.disconnect()
                     logger.info("Cached device %s is reachable", addr)
-                    return addr
+                    return addr, probe
                 except (ble.BLEConnectionError, Exception):
                     logger.debug("Cached device %s unreachable", addr)
 
@@ -217,4 +228,4 @@ class DeviceService:
                 f"'{self._device_name_prefix}'. "
                 f"Make sure the device is powered on and within BLE range."
             )
-        return addresses[0]
+        return addresses[0], None

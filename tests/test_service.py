@@ -76,12 +76,7 @@ class TestConnect:
     async def test_connect_via_cache(self, _mock_cache):
         cached_addr = "CC:CC:CC:CC:CC:CC"
         probe_conn = _make_mock_connection(cached_addr)
-
-        async def mock_connect(address, on_notification=None, **kwargs):
-            if on_notification is None:
-                return probe_conn
-            conn = _make_mock_connection(address)
-            return conn
+        probe_conn.subscribe_notifications = AsyncMock()
 
         with (
             patch(
@@ -90,8 +85,9 @@ class TestConnect:
             ),
             patch(
                 "walkie_grotkie.service.ble.connect",
-                side_effect=mock_connect,
-            ),
+                new_callable=AsyncMock,
+                return_value=probe_conn,
+            ) as mock_connect,
             patch("walkie_grotkie.service.add_to_cache"),
             patch(
                 "walkie_grotkie.service.ble.scan",
@@ -102,14 +98,24 @@ class TestConnect:
             await svc.connect()
 
             assert svc.is_connected
+            # Only one ble.connect call (the probe) — no second connection.
+            assert mock_connect.await_count == 1
+            # The probe connection is reused with notifications subscribed.
+            probe_conn.subscribe_notifications.assert_awaited_once()
             mock_scan.assert_not_awaited()
             await svc.disconnect()
 
     @pytest.mark.asyncio
     async def test_cache_miss_falls_back_to_scan(self, _mock_cache):
+        call_count = 0
+
         async def mock_connect(address, on_notification=None, **kwargs):
-            if on_notification is None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call is the cache probe — simulate unreachable device.
                 raise BLEConnectionError("unreachable")
+            # Second call is the real connection after scan.
             conn = _make_mock_connection(address)
             return conn
 
