@@ -11,7 +11,7 @@ import {
 interface SmallButtonsProps {
   onRestart?: () => void;
   onHome?: () => void;
-  onCycleAnimation?: () => void;
+  onAnimation?: () => void;
   onSettings?: () => void;
   onHelp?: () => void;
   onVoice?: () => void;
@@ -30,7 +30,7 @@ interface ButtonDef {
  *
  * Row 1 (left to right):
  *   ⌂ Home        — navigates back to the main screen
- *   ✦ Anim cycle  — cycles through Grot animations
+ *   ✦ Animations  — opens the animation picker
  *   ⚙ Settings    — opens the settings view
  *
  * Row 2 (left to right):
@@ -41,7 +41,7 @@ interface ButtonDef {
 export default function SmallButtons({
   onRestart,
   onHome,
-  onCycleAnimation,
+  onAnimation,
   onSettings,
   onHelp,
   onVoice,
@@ -56,9 +56,9 @@ export default function SmallButtons({
     },
     {
       className: "small-btn-anim",
-      onClick: onCycleAnimation,
-      label: "Cycle animation",
-      testId: "cycle-animation-button",
+      onClick: onAnimation,
+      label: "Animations",
+      testId: "animation-button",
       icon: <FaPersonWalking />,
     },
     {

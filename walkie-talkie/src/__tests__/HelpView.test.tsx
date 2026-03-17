@@ -33,9 +33,9 @@ describe("HelpView", () => {
     expect(screen.getByText("Home / chat screen")).toBeInTheDocument();
   });
 
-  it("contains an entry for cycling animations", () => {
+  it("contains an entry for picking animations", () => {
     render(<HelpView />);
-    expect(screen.getByText("Cycle Grot animations")).toBeInTheDocument();
+    expect(screen.getByText("Pick Grot animation")).toBeInTheDocument();
   });
 
   it("contains an entry for settings", () => {
