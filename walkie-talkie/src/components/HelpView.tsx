@@ -11,7 +11,7 @@ import {
 const HELP_ENTRIES = [
   { icon: <FaPowerOff />, text: "Turn off the app" },
   { icon: <FaHouse />, text: "Home / chat screen" },
-  { icon: <FaPersonWalking />, text: "Cycle Grot animations" },
+  { icon: <FaPersonWalking />, text: "Pick Grot animation" },
   { icon: <FaGear />, text: "Settings (API key)" },
   { icon: <FaRotate />, text: "Restart session" },
   { icon: <FaRegCircleQuestion />, text: "This help screen" },

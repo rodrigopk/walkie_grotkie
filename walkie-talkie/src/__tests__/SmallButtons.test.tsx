@@ -67,23 +67,23 @@ describe("SmallButtons", () => {
   });
 
   // ── Cycle animation ───────────────────────────────────────────
-  it("renders the cycle animation button when onCycleAnimation is provided", () => {
-    render(<SmallButtons onRestart={vi.fn()} onCycleAnimation={vi.fn()} />);
-    expect(screen.getByTestId("cycle-animation-button")).toBeInTheDocument();
+  it("renders the animation button when onAnimation is provided", () => {
+    render(<SmallButtons onRestart={vi.fn()} onAnimation={vi.fn()} />);
+    expect(screen.getByTestId("animation-button")).toBeInTheDocument();
   });
 
-  it("calls onCycleAnimation when the cycle animation button is clicked", () => {
+  it("calls onAnimation when the animation button is clicked", () => {
     const onCycle = vi.fn();
-    render(<SmallButtons onRestart={vi.fn()} onCycleAnimation={onCycle} />);
-    fireEvent.click(screen.getByTestId("cycle-animation-button"));
+    render(<SmallButtons onRestart={vi.fn()} onAnimation={onCycle} />);
+    fireEvent.click(screen.getByTestId("animation-button"));
     expect(onCycle).toHaveBeenCalledOnce();
   });
 
-  it("cycle animation button has the correct aria-label", () => {
-    render(<SmallButtons onRestart={vi.fn()} onCycleAnimation={vi.fn()} />);
-    expect(screen.getByTestId("cycle-animation-button")).toHaveAttribute(
+  it("animation button has the correct aria-label", () => {
+    render(<SmallButtons onRestart={vi.fn()} onAnimation={vi.fn()} />);
+    expect(screen.getByTestId("animation-button")).toHaveAttribute(
       "aria-label",
-      "Cycle animation"
+      "Animations"
     );
   });
 
@@ -135,7 +135,7 @@ describe("SmallButtons", () => {
       <SmallButtons
         onRestart={vi.fn()}
         onHome={vi.fn()}
-        onCycleAnimation={vi.fn()}
+        onAnimation={vi.fn()}
         onSettings={vi.fn()}
         onHelp={vi.fn()}
         onVoice={vi.fn()}
@@ -149,7 +149,7 @@ describe("SmallButtons", () => {
       <SmallButtons
         onRestart={vi.fn()}
         onHome={vi.fn()}
-        onCycleAnimation={vi.fn()}
+        onAnimation={vi.fn()}
         onSettings={vi.fn()}
         onHelp={vi.fn()}
         onVoice={vi.fn()}

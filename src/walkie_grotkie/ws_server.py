@@ -412,8 +412,6 @@ class GrotWebSocketServer:
             await self._send_status(f"Playing animation: {state.name.lower()}")
             await self._controller.transition(state)
             await self._controller.await_current()
-            await asyncio.sleep(IDLE_REVERT_DELAY)
-            await self._controller.transition(AnimationState.IDLE)
             return
 
         await self._send_status(

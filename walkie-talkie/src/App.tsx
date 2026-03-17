@@ -7,6 +7,7 @@ import SettingsView from "./components/SettingsView";
 import StatusScreen from "./components/StatusScreen";
 import HelpView from "./components/HelpView";
 import VoiceView, { type VoiceName } from "./components/VoiceView";
+import AnimationView, { type AnimationName } from "./components/AnimationView";
 import PushToTalkButton, { type ButtonState } from "./components/PushToTalkButton";
 import SmallButtons from "./components/SmallButtons";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -16,8 +17,6 @@ import type { ServerMessage } from "./types/protocol";
 
 const WS_URL = "ws://localhost:8765";
 const DEFAULT_VOICE: VoiceName = "nova";
-
-const CYCLE_ANIMATIONS = ["thinking", "talking", "excited", "dancing", "surprised"] as const;
 
 let _lineId = 0;
 function makeId() {
@@ -91,7 +90,8 @@ type AppPhase =
   | "auth_error" // key rejected by OpenAI
   | "ble_error"  // BLE device connection failed
   | "help"       // help screen
-  | "voice";     // voice picker screen
+  | "voice"      // voice picker screen
+  | "animation"; // animation picker screen
 
 export default function App() {
   const recorder = useAudioRecorder();
@@ -101,6 +101,7 @@ export default function App() {
   const [appPhase, setAppPhase] = useState<AppPhase>("checking");
   const [apiKey, setApiKey] = useState<string>("");
   const [ttsVoice, setTtsVoice] = useState<VoiceName>(DEFAULT_VOICE);
+  const [currentAnimation, setCurrentAnimation] = useState<AnimationName>("idle");
 
   const storeRef = useRef<Store | null>(null);
 
@@ -120,9 +121,6 @@ export default function App() {
   // Keep ttsVoice accessible in the reconnect effect without stale closure.
   const ttsVoiceRef = useRef<VoiceName>(DEFAULT_VOICE);
   ttsVoiceRef.current = ttsVoice;
-
-  // Tracks which animation is next in the cycle (avoids re-creating the callback on each advance).
-  const animCycleRef = useRef(0);
 
   function addLine(text: string, variant: DisplayLine["variant"]) {
     setLines((prev) => [...prev, { id: makeId(), text, variant }]);
@@ -335,14 +333,20 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws]);
 
-  // ── Animation cycle handler ───────────────────────────────────
-  const handleCycleAnimation = useCallback(() => {
-    const name = CYCLE_ANIMATIONS[animCycleRef.current];
-    animCycleRef.current = (animCycleRef.current + 1) % CYCLE_ANIMATIONS.length;
-    ws.send({ type: "command", text: `/animation ${name}` });
-    addLine(`[animation: ${name}]`, "system");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ws]);
+  // ── Animation picker handlers ────────────────────────────────
+  const handleOpenAnimation = useCallback(() => {
+    setAppPhase("animation");
+  }, []);
+
+  const handleSelectAnimation = useCallback(
+    (animation: AnimationName) => {
+      setCurrentAnimation(animation);
+      ws.send({ type: "command", text: `/animation ${animation}` });
+      addLine(`[animation: ${animation}]`, "system");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ws],
+  );
 
   // ── Help / Voice handlers ─────────────────────────────────────
   const handleOpenHelp = useCallback(() => {
@@ -450,6 +454,14 @@ export default function App() {
           />
         );
 
+      case "animation":
+        return (
+          <AnimationView
+            currentAnimation={currentAnimation}
+            onSelect={handleSelectAnimation}
+          />
+        );
+
       case "ready":
         return <LEDDisplay lines={lines} />;
     }
@@ -459,7 +471,7 @@ export default function App() {
     <SmallButtons
       onRestart={handleRestart}
       onHome={handleGoHome}
-      onCycleAnimation={handleCycleAnimation}
+      onAnimation={handleOpenAnimation}
       onSettings={handleOpenSettings}
       onHelp={handleOpenHelp}
       onVoice={handleOpenVoice}
